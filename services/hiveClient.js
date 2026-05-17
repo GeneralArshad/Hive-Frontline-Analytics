@@ -117,13 +117,32 @@ function summariseDayPlans(plans) {
 
 // ── Parse employee fields (defensive — API shape may vary) ─────────────────
 function parseEmployee(emp) {
-  // Try common field names for EC code
+  // Log first employee shape to help debug field names
+  if (parseEmployee._logged < 2) {
+    console.log('[hive] Employee sample keys:', Object.keys(emp).join(', '));
+    console.log('[hive] Employee sample:', JSON.stringify(emp).slice(0, 400));
+    parseEmployee._logged = (parseEmployee._logged || 0) + 1;
+  }
+
   const ec = emp.employeeCode ?? emp.empCode ?? emp.code ?? emp.ec ?? emp.employeeId ?? emp._id;
-  const name = emp.name ?? emp.fullName ?? emp.employeeName ?? 'Unknown';
-  const designation = emp.designation ?? emp.role ?? emp.position ?? '';
+  const name = emp.name ?? emp.fullName ?? emp.employeeName ??
+    `${emp.firstName || ''} ${emp.lastName || ''}`.trim() || 'Unknown';
   const hiveId = emp._id ?? emp.id ?? ec;
+
+  // Designation: handle string, nested object, or alternative field names
+  let designation = '';
+  const rawDesg = emp.designation ?? emp.designationName ?? emp.role ??
+    emp.jobTitle ?? emp.position ?? emp.userDesignation ?? emp.designationTitle ?? null;
+  if (typeof rawDesg === 'string') {
+    designation = rawDesg;
+  } else if (rawDesg && typeof rawDesg === 'object') {
+    designation = rawDesg.name ?? rawDesg.title ?? rawDesg.designationName ??
+      rawDesg.label ?? Object.values(rawDesg).find(v => typeof v === 'string') ?? '';
+  }
+
   return { ec: String(ec).trim(), hiveId: String(hiveId), name, designation };
 }
+parseEmployee._logged = 0;
 
 // ── Parse tour plan status for a given month/year ──────────────────────────
 function parseTourPlanStatus(plans, month, year) {
