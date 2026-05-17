@@ -37,6 +37,14 @@ app.use(session({
 // ── Auth routes (public) ──────────────────────────────────────────────────────
 app.use('/auth', authRouter);
 
+app.get('/health', async (req, res) => {
+  try {
+    await db.pool.query('SELECT 1');
+    res.json({ ok: true, db: 'connected', ts: new Date() });
+  } catch (err) {
+    res.status(503).json({ ok: false, db: 'error', error: err.message });
+  }
+});
 // ── Require authentication for everything below ───────────────────────────────
 function requireAuth(req, res, next) {
   if (req.session.authenticated) return next();
