@@ -77,11 +77,19 @@ async function fetchAllEmployees(onProgress) {
 async function fetchTourPlans(employeeId) {
   try {
     const data = await hiveGet(`/admin/employees/${employeeId}/tour-plans`);
-    return Array.isArray(data) ? data : (data.data || []);
-  } catch {
+    const plans = Array.isArray(data) ? data : (data.data || data.tourPlans || data.plans || []);
+    if (fetchTourPlans._logged < 1 && plans.length > 0) {
+      console.log('[hive] Tour plan sample keys:', Object.keys(plans[0]).join(', '));
+      console.log('[hive] Tour plan sample:', JSON.stringify(plans[0]).slice(0, 400));
+      fetchTourPlans._logged = 1;
+    }
+    return plans;
+  } catch (err) {
+    console.log(`[hive] fetchTourPlans error for ${employeeId}: ${err.message}`);
     return [];
   }
 }
+fetchTourPlans._logged = 0;
 
 // ── Day Plans ─────────────────────────────────────────────────────────────────
 async function fetchDayPlans(employeeId, month, year) {
@@ -89,12 +97,20 @@ async function fetchDayPlans(employeeId, month, year) {
     const data = await hiveGet(
       `/admin/employees/${employeeId}/day-plans?month=${month}&year=${year}`
     );
-    const plans = Array.isArray(data) ? data : (data.data || []);
+    const plans = Array.isArray(data) ? data : (data.data || data.dayPlans || data.plans || []);
+    // Log first day plan shape so we know the exact field names
+    if (fetchDayPlans._logged < 1 && plans.length > 0) {
+      console.log('[hive] Day plan sample keys:', Object.keys(plans[0]).join(', '));
+      console.log('[hive] Day plan sample:', JSON.stringify(plans[0]).slice(0, 600));
+      fetchDayPlans._logged = 1;
+    }
     return summariseDayPlans(plans);
-  } catch {
+  } catch (err) {
+    console.log(`[hive] fetchDayPlans error for ${employeeId}: ${err.message}`);
     return { daysLogged: 0, daysWithVisits: 0, totalVisits: 0, avgVpd: 0, pendingApproval: 0 };
   }
 }
+fetchDayPlans._logged = 0;
 
 function summariseDayPlans(plans) {
   if (!plans.length) {
@@ -104,11 +120,30 @@ function summariseDayPlans(plans) {
   const daysLogged = plans.length;
 
   plans.forEach(p => {
-    const visits = parseInt(p.visitCount ?? p.visits ?? p.doctorsVisited ?? 0);
+    // Try every plausible field name for visit count
+    // The Frontline Admin shows per-day visit counts combining doctors + chemists
+    const raw =
+      p.visitCount       ??   // most common
+      p.totalVisits      ??
+      p.visits           ??
+      p.noOfVisits       ??
+      p.numberOfVisits   ??
+      p.doctorVisits     ??
+      p.doctorsVisited   ??
+      p.totalDoctors     ??
+      p.doctorCount      ??
+      // Some APIs nest visits: { doctors: [...], chemists: [...] }
+      (Array.isArray(p.doctors)  ? p.doctors.length  : undefined) ??
+      (Array.isArray(p.chemists) ? p.chemists.length : undefined) ??
+      0;
+    const visits = parseInt(raw) || 0;
     totalVisits += visits;
     if (visits > 0) daysWithVisits++;
-    // Pending = submitted but not yet approved by manager
-    if (p.status === 'SUBMITTED' || p.approvalStatus === 'PENDING') pendingApproval++;
+
+    // Pending = any status that isn't APPROVED yet
+    // Frontline Admin uses: APPROVED, IN_PROGRESS, PENDING, REJECTED
+    const s = (p.status ?? p.approvalStatus ?? p.planStatus ?? '').toUpperCase();
+    if (s === 'SUBMITTED' || s === 'PENDING' || s === 'IN_PROGRESS') pendingApproval++;
   });
 
   const avgVpd = daysLogged > 0 ? parseFloat((totalVisits / daysLogged).toFixed(2)) : 0;
