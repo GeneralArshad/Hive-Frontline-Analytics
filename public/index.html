@@ -333,21 +333,33 @@ tbody td { padding: 10px 16px; color: var(--txt); vertical-align: middle; }
 /* ── Employee modal ──────────────────────────────────────────────────────────── */
 #emp-modal { position: fixed; inset: 0; background: rgba(16,24,40,.45); backdrop-filter: blur(6px); display: none; align-items: center; justify-content: center; z-index: 300; padding: 20px; }
 #emp-modal.open { display: flex; }
-.modal-card { background: #fff; border-radius: var(--r-lg); box-shadow: 0 24px 48px rgba(16,24,40,.18); width: 100%; max-width: 520px; max-height: 80vh; overflow-y: auto; }
-.modal-header { padding: 24px 28px 20px; border-bottom: 1px solid var(--border); }
+.modal-card { background: #fff; border-radius: var(--r-lg); box-shadow: 0 24px 48px rgba(16,24,40,.18); width: 100%; max-width: 700px; max-height: 88vh; overflow-y: auto; }
+.modal-header { padding: 22px 28px 16px; border-bottom: 1px solid var(--border); }
 .modal-header h3 { font-size: 18px; font-weight: 800; letter-spacing: -.03em; color: var(--txt); }
 .modal-ec   { font-size: 12px; color: var(--txt3); font-weight: 500; margin-top: 3px; }
-.modal-desg { display: inline-flex; margin-top: 8px; }
-.modal-body { padding: 24px 28px; }
-.modal-section { margin-bottom: 20px; }
-.modal-section h4 { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .08em; color: var(--txt3); margin-bottom: 12px; }
+.modal-meta { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px; align-items: center; }
+.modal-body { padding: 20px 28px; }
+.modal-section { margin-bottom: 18px; }
+.modal-section h4 { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .08em; color: var(--txt3); margin-bottom: 10px; }
 .modal-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-.modal-stat { background: var(--bg); border-radius: 10px; padding: 14px 16px; border: 1px solid var(--border); }
+.modal-stat { background: var(--bg); border-radius: 10px; padding: 12px 16px; border: 1px solid var(--border); }
 .modal-stat-label { font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: .07em; color: var(--txt3); margin-bottom: 4px; }
-.modal-stat-value { font-size: 22px; font-weight: 800; letter-spacing: -.04em; color: var(--txt); font-variant-numeric: tabular-nums; }
-.modal-footer { padding: 14px 28px; border-top: 1px solid var(--border); display: flex; justify-content: flex-end; gap: 8px; }
+.modal-stat-value { font-size: 20px; font-weight: 800; letter-spacing: -.04em; color: var(--txt); font-variant-numeric: tabular-nums; }
+.modal-footer { padding: 12px 28px; border-top: 1px solid var(--border); display: flex; justify-content: flex-end; gap: 8px; }
 .btn-primary { background: var(--royal); border: none; border-radius: 8px; color: #fff; font-family: var(--font); font-size: 12px; font-weight: 600; padding: 8px 18px; cursor: pointer; transition: background .12s; }
 .btn-primary:hover { background: var(--mid); }
+
+/* Day-detail table inside modal */
+.day-tbl-wrap { max-height: 260px; overflow-y: auto; border: 1px solid var(--border); border-radius: 8px; }
+.day-tbl-wrap table { font-size: 12px; white-space: nowrap; }
+.day-tbl-wrap thead th { font-size: 10px; padding: 8px 12px; background: #FAFAFA; position: sticky; top: 0; }
+.day-tbl-wrap tbody td { padding: 8px 12px; }
+.status-dot { display: inline-block; width: 7px; height: 7px; border-radius: 50%; margin-right: 5px; vertical-align: middle; }
+.dot-approved { background: var(--green); }
+.dot-pending, .dot-in_progress { background: var(--amber); }
+.dot-rejected { background: var(--red); }
+.dot-unknown, .dot-draft { background: var(--txt4); }
+#modal-days-loading { text-align:center; padding:24px; color:var(--txt3); font-size:13px; }
 
 /* ── Toast ───────────────────────────────────────────────────────────────────── */
 #toast { position: fixed; bottom: 24px; right: 24px; background: var(--txt); color: #fff; border-radius: 10px; padding: 12px 18px; font-size: 13px; font-weight: 600; box-shadow: var(--shadow-md); z-index: 500; opacity: 0; transform: translateY(8px); transition: opacity .2s, transform .2s; pointer-events: none; }
@@ -450,8 +462,14 @@ tbody td { padding: 10px 16px; color: var(--txt); vertical-align: middle; }
     <!-- Filter bar -->
     <div class="filter-bar" id="global-filter-bar">
       <span class="filter-label">Filter</span>
-      <select class="filter-sel" id="gf-designation" style="min-width:160px">
+      <select class="filter-sel" id="gf-designation" style="min-width:150px">
         <option value="">All Designations</option>
+      </select>
+      <select class="filter-sel" id="gf-state" style="min-width:130px">
+        <option value="">All States</option>
+      </select>
+      <select class="filter-sel" id="gf-hq" style="min-width:140px">
+        <option value="">All HQs</option>
       </select>
       <select class="filter-sel" id="gf-status">
         <option value="">All Statuses</option>
@@ -461,7 +479,7 @@ tbody td { padding: 10px 16px; color: var(--txt); vertical-align: middle; }
         <option value="REJECTED">Rejected</option>
         <option value="MISSING">Missing</option>
       </select>
-      <button class="btn-sm" id="gf-reset" style="display:none">✕ Clear filters</button>
+      <button class="btn-sm" id="gf-reset" style="display:none">✕ Clear</button>
       <span class="filter-count" id="gf-count"></span>
     </div>
 
@@ -587,8 +605,8 @@ tbody td { padding: 10px 16px; color: var(--txt); vertical-align: middle; }
         </div>
         <div class="tbl-wrap">
           <table id="tp-table">
-            <thead><tr><th>EC Code</th><th>Name</th><th>Designation</th><th>Current Month</th><th>Prev Month</th><th>Plans</th></tr></thead>
-            <tbody id="tp-body"><tr><td colspan="6" class="empty-state">Loading…</td></tr></tbody>
+            <thead><tr><th>EC Code</th><th>Name</th><th>Designation</th><th>State</th><th>HQ</th><th>Current Month</th><th>Prev Month</th><th>Plans</th></tr></thead>
+            <tbody id="tp-body"><tr><td colspan="8" class="empty-state">Loading…</td></tr></tbody>
           </table>
         </div>
       </div>
@@ -606,8 +624,8 @@ tbody td { padding: 10px 16px; color: var(--txt); vertical-align: middle; }
         </div>
         <div class="tbl-wrap">
           <table id="va-table">
-            <thead><tr><th>EC Code</th><th>Name</th><th>Designation</th><th>Days Logged</th><th>Days w/ Visits</th><th class="text-right">Total Visits</th><th class="text-right">Avg VPD</th><th>Pending</th></tr></thead>
-            <tbody id="va-body"><tr><td colspan="8" class="empty-state">Loading…</td></tr></tbody>
+            <thead><tr><th>EC Code</th><th>Name</th><th>Designation</th><th>State</th><th>HQ</th><th>Days Logged</th><th>Days w/ Visits</th><th class="text-right">Total Visits</th><th class="text-right">Avg VPD</th><th>Pending</th></tr></thead>
+            <tbody id="va-body"><tr><td colspan="10" class="empty-state">Loading…</td></tr></tbody>
           </table>
         </div>
       </div>
@@ -701,7 +719,7 @@ tbody td { padding: 10px 16px; color: var(--txt); vertical-align: middle; }
     <div class="modal-header">
       <h3 id="modal-name">—</h3>
       <div class="modal-ec" id="modal-ec">—</div>
-      <div class="modal-desg" id="modal-desg-badge">—</div>
+      <div class="modal-meta" id="modal-meta-row">—</div>
     </div>
     <div class="modal-body">
       <div class="modal-section">
@@ -713,15 +731,25 @@ tbody td { padding: 10px 16px; color: var(--txt); vertical-align: middle; }
       </div>
       <div class="modal-section">
         <h4>Visit Activity (MTD)</h4>
-        <div class="modal-grid">
+        <div class="modal-grid" style="margin-bottom:14px">
           <div class="modal-stat"><div class="modal-stat-label">Days Logged</div><div class="modal-stat-value" id="modal-days-logged">—</div></div>
           <div class="modal-stat"><div class="modal-stat-label">Days with Visits</div><div class="modal-stat-value" id="modal-days-visits">—</div></div>
           <div class="modal-stat"><div class="modal-stat-label">Total Visits</div><div class="modal-stat-value" id="modal-total-visits">—</div></div>
           <div class="modal-stat"><div class="modal-stat-label">Avg Visits/Day</div><div class="modal-stat-value" id="modal-avg-vpd">—</div></div>
         </div>
+        <!-- Day-by-day breakdown -->
+        <div id="modal-days-loading" style="display:none">Loading day plans…</div>
+        <div class="day-tbl-wrap" id="modal-days-wrap" style="display:none">
+          <table>
+            <thead><tr><th>Date</th><th>Status</th><th class="text-right">Visits</th><th class="text-right">Doctors</th><th class="text-right">Chemists</th></tr></thead>
+            <tbody id="modal-days-body"></tbody>
+          </table>
+        </div>
+        <div id="modal-days-empty" style="display:none;font-size:12px;color:var(--txt3);padding:10px 0">No day plans recorded for this month.</div>
       </div>
     </div>
     <div class="modal-footer">
+      <button class="btn-sm" onclick="exportModalDays()">⬇ CSV</button>
       <button class="btn-sm" onclick="closeModal()">Close</button>
     </div>
   </div>
@@ -732,8 +760,8 @@ tbody td { padding: 10px 16px; color: var(--txt); vertical-align: middle; }
 <script>
 'use strict';
 // ── State ─────────────────────────────────────────────────────────────────────
-const state = { month:null, year:null, employees:[], summary:null, topPerf:[], nonRep:[], designations:[], syncPoll:null, charts:{} };
-const gf = { designation:'', status:'' };
+const state = { month:null, year:null, employees:[], summary:null, topPerf:[], nonRep:[], designations:[], syncPoll:null, charts:{}, modalDays:[] };
+const gf = { designation:'', state:'', hq:'', status:'' };
 
 // ── Months ────────────────────────────────────────────────────────────────────
 const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
@@ -793,13 +821,15 @@ function badge(status) {
 function getFilteredEmployees() {
   return state.employees.filter(e => {
     if (gf.designation && e.designation !== gf.designation) return false;
+    if (gf.state && e.state !== gf.state) return false;
+    if (gf.hq && e.hq !== gf.hq) return false;
     if (gf.status) { const cur = e.may_status||e.current_status||'MISSING'; if (cur!==gf.status) return false; }
     return true;
   });
 }
 function applyGlobalFilters() {
   const filtered = getFilteredEmployees();
-  const isActive = gf.designation||gf.status;
+  const isActive = gf.designation||gf.state||gf.hq||gf.status;
   document.getElementById('gf-count').textContent = isActive ? `${filtered.length} of ${state.employees.length} employees` : `${state.employees.length} employees`;
   document.getElementById('gf-reset').style.display = isActive ? '' : 'none';
   renderTourPlans(); renderVisitActivity(); renderNonReporters();
@@ -824,19 +854,43 @@ function updateKpiFromFiltered(rows) {
   renderGauge(comp);
   renderStatusChart({approved,submitted,draft:0,totalEmployees:total});
 }
-function populateDesignationFilter() {
-  const desgSet = [...new Set(state.employees.map(e=>e.designation).filter(Boolean))].sort();
-  const sel = document.getElementById('gf-designation');
-  const cur = sel.value;
-  sel.innerHTML = '<option value="">All Designations</option>' +
-    desgSet.map(d=>`<option value="${d}"${d===cur?' selected':''}>${d}</option>`).join('');
+function populateFilterDropdowns() {
+  const desgSet  = [...new Set(state.employees.map(e=>e.designation).filter(Boolean))].sort();
+  const stateSet = [...new Set(state.employees.map(e=>e.state).filter(Boolean))].sort();
+  const hqSet    = [...new Set(state.employees.map(e=>e.hq).filter(Boolean))].sort();
+
+  const dSel = document.getElementById('gf-designation');
+  dSel.innerHTML = '<option value="">All Designations</option>' +
+    desgSet.map(d=>`<option value="${d}"${d===gf.designation?' selected':''}>${d}</option>`).join('');
+
+  const sSel = document.getElementById('gf-state');
+  sSel.innerHTML = '<option value="">All States</option>' +
+    stateSet.map(s=>`<option value="${s}"${s===gf.state?' selected':''}>${s}</option>`).join('');
+
+  const hSel = document.getElementById('gf-hq');
+  // If a state is selected, filter HQs by that state
+  const hqFiltered = gf.state
+    ? [...new Set(state.employees.filter(e=>e.state===gf.state).map(e=>e.hq).filter(Boolean))].sort()
+    : hqSet;
+  hSel.innerHTML = '<option value="">All HQs</option>' +
+    hqFiltered.map(h=>`<option value="${h}"${h===gf.hq?' selected':''}>${h}</option>`).join('');
 }
 document.getElementById('gf-designation').addEventListener('change', e=>{gf.designation=e.target.value;applyGlobalFilters();});
+document.getElementById('gf-state').addEventListener('change', e=>{
+  gf.state=e.target.value;
+  if (gf.hq) { gf.hq=''; document.getElementById('gf-hq').value=''; }
+  populateFilterDropdowns();
+  applyGlobalFilters();
+});
+document.getElementById('gf-hq').addEventListener('change', e=>{gf.hq=e.target.value;applyGlobalFilters();});
 document.getElementById('gf-status').addEventListener('change', e=>{gf.status=e.target.value;applyGlobalFilters();});
 document.getElementById('gf-reset').addEventListener('click', ()=>{
-  gf.designation='';gf.status='';
+  gf.designation='';gf.state='';gf.hq='';gf.status='';
   document.getElementById('gf-designation').value='';
+  document.getElementById('gf-state').value='';
+  document.getElementById('gf-hq').value='';
   document.getElementById('gf-status').value='';
+  populateFilterDropdowns();
   applyGlobalFilters();
 });
 
@@ -877,7 +931,7 @@ async function loadEmployees() {
     const d = await apiFetch('/api/employees');
     if (!d) return;
     state.employees = d.employees||[];
-    populateDesignationFilter();
+    populateFilterDropdowns();
     applyGlobalFilters();
     renderTourPlans();
     renderVisitActivity();
@@ -970,28 +1024,33 @@ function renderTourPlans(filter, search) {
   document.getElementById('tp-month-label').textContent = monthLabel();
   let rows = getFilteredEmployees();
   if (filter) rows = rows.filter(e=>(e.may_status||'MISSING')===filter);
-  if (search) { const q=search.toLowerCase(); rows=rows.filter(e=>(e.name||'').toLowerCase().includes(q)||(e.ec||'').toLowerCase().includes(q)); }
+  if (search) { const q=search.toLowerCase(); rows=rows.filter(e=>(e.name||'').toLowerCase().includes(q)||(e.ec||'').toLowerCase().includes(q)||(e.state||'').toLowerCase().includes(q)||(e.hq||'').toLowerCase().includes(q)); }
   const body = document.getElementById('tp-body');
-  if (!rows.length) { body.innerHTML='<tr><td colspan="6" class="empty-state">No records match.</td></tr>'; return; }
+  if (!rows.length) { body.innerHTML='<tr><td colspan="8" class="empty-state">No records match.</td></tr>'; return; }
   body.innerHTML = rows.map(e=>`<tr onclick="openModal('${e.ec}')">
     <td class="ec-code">${e.ec||'—'}</td>
     <td class="name-cell">${e.name||'—'}</td>
     <td class="desg-cell">${e.designation||'—'}</td>
+    <td class="desg-cell">${e.state||'—'}</td>
+    <td class="desg-cell">${e.hq||'—'}</td>
     <td>${badge(e.may_status||'MISSING')}</td>
-    <td>${badge(e.prev_status||null)}</td>
+    <td>${badge(e.apr_status||null)}</td>
     <td class="mono">${fmtNum(e.plan_count)}</td>
   </tr>`).join('');
 }
 function renderVisitActivity(search) {
   document.getElementById('va-month-label').textContent = monthLabel();
   let rows = getFilteredEmployees();
-  if (search) { const q=search.toLowerCase(); rows=rows.filter(e=>(e.name||'').toLowerCase().includes(q)||(e.ec||'').toLowerCase().includes(q)); }
+  rows.sort((a,b)=>(Number(b.total_visits)||0)-(Number(a.total_visits)||0));
+  if (search) { const q=search.toLowerCase(); rows=rows.filter(e=>(e.name||'').toLowerCase().includes(q)||(e.ec||'').toLowerCase().includes(q)||(e.state||'').toLowerCase().includes(q)||(e.hq||'').toLowerCase().includes(q)); }
   const body = document.getElementById('va-body');
-  if (!rows.length) { body.innerHTML='<tr><td colspan="8" class="empty-state">No records.</td></tr>'; return; }
+  if (!rows.length) { body.innerHTML='<tr><td colspan="10" class="empty-state">No records.</td></tr>'; return; }
   body.innerHTML = rows.map(e=>`<tr onclick="openModal('${e.ec}')">
     <td class="ec-code">${e.ec||'—'}</td>
     <td class="name-cell">${e.name||'—'}</td>
     <td class="desg-cell">${e.designation||'—'}</td>
+    <td class="desg-cell">${e.state||'—'}</td>
+    <td class="desg-cell">${e.hq||'—'}</td>
     <td class="mono">${fmtNum(e.days_logged)}</td>
     <td class="mono">${fmtNum(e.days_with_visits)}</td>
     <td class="mono text-right">${fmtNum(e.total_visits)}</td>
@@ -1062,21 +1121,88 @@ function renderDesignations() {
 }
 
 // ── Employee modal ─────────────────────────────────────────────────────────────
-function openModal(ec) {
+const STATUS_COLORS = { APPROVED:'var(--green)', IN_PROGRESS:'var(--amber)', PENDING:'var(--amber)', REJECTED:'var(--red)', SUBMITTED:'var(--royal)', DRAFT:'var(--txt4)', UNKNOWN:'var(--txt4)' };
+
+async function openModal(ec) {
   const e = state.employees.find(x=>x.ec===ec)||state.topPerf.find(x=>x.ec===ec)||state.nonRep.find(x=>x.ec===ec);
   if (!e) return;
+
+  // Basic fields
   document.getElementById('modal-name').textContent = e.name||'—';
   document.getElementById('modal-ec').textContent   = 'EC: '+(e.ec||'—');
-  document.getElementById('modal-desg-badge').innerHTML = `<span class="badge badge-submitted">${e.designation||'—'}</span>`;
+
+  // Meta row: designation + state + HQ badges
+  const metaParts = [];
+  if (e.designation) metaParts.push(`<span class="badge badge-submitted">${e.designation}</span>`);
+  if (e.state)       metaParts.push(`<span class="badge badge-missing">${e.state}</span>`);
+  if (e.hq)         metaParts.push(`<span class="badge badge-missing">🏢 ${e.hq}</span>`);
+  document.getElementById('modal-meta-row').innerHTML = metaParts.join('') || '—';
+
   document.getElementById('modal-cur-status').innerHTML  = badge(e.may_status||'MISSING');
-  document.getElementById('modal-prev-status').innerHTML = badge(e.prev_status||null);
+  document.getElementById('modal-prev-status').innerHTML = badge(e.apr_status||null);
   document.getElementById('modal-days-logged').textContent  = fmtNum(e.days_logged);
   document.getElementById('modal-days-visits').textContent  = fmtNum(e.days_with_visits);
   document.getElementById('modal-total-visits').textContent = fmtNum(e.total_visits);
   document.getElementById('modal-avg-vpd').textContent      = e.avg_vpd!=null?Number(e.avg_vpd).toFixed(1):'—';
+
+  // Show modal
   document.getElementById('emp-modal').classList.add('open');
+
+  // Fetch day-level data
+  document.getElementById('modal-days-loading').style.display = '';
+  document.getElementById('modal-days-wrap').style.display    = 'none';
+  document.getElementById('modal-days-empty').style.display   = 'none';
+  state.modalDays = [];
+
+  try {
+    const url = `/api/employees/${encodeURIComponent(ec)}/days?month=${state.month}&year=${state.year}`;
+    const d = await fetch(url).then(r=>r.json());
+    document.getElementById('modal-days-loading').style.display = 'none';
+    const days = d.days||[];
+    state.modalDays = days;
+    if (!days.length) {
+      document.getElementById('modal-days-empty').style.display = '';
+    } else {
+      const DAYS = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+      document.getElementById('modal-days-body').innerHTML = days.map(d=>{
+        const dt = new Date(d.date);
+        const dayName = DAYS[dt.getDay()];
+        const dotCls = 'dot-'+(d.status||'unknown').toLowerCase().replace(/[_\s]+/g,'-');
+        return `<tr>
+          <td>${d.date} <span style="font-size:10px;color:var(--txt3)">${dayName}</span></td>
+          <td><span class="status-dot ${dotCls}"></span>${d.status}</td>
+          <td class="mono text-right">${fmtNum(d.visits)}</td>
+          <td class="mono text-right">${d.doctorVisits>0?fmtNum(d.doctorVisits):'—'}</td>
+          <td class="mono text-right">${d.chemistVisits>0?fmtNum(d.chemistVisits):'—'}</td>
+        </tr>`;
+      }).join('');
+      document.getElementById('modal-days-wrap').style.display = '';
+    }
+  } catch(err) {
+    document.getElementById('modal-days-loading').style.display = 'none';
+    document.getElementById('modal-days-empty').style.display   = '';
+    document.getElementById('modal-days-empty').textContent = 'Could not load day plans: '+err.message;
+  }
 }
-function closeModal() { document.getElementById('emp-modal').classList.remove('open'); }
+function closeModal() {
+  document.getElementById('emp-modal').classList.remove('open');
+  state.modalDays = [];
+}
+function exportModalDays() {
+  const days = state.modalDays;
+  if (!days.length) return;
+  const hdr = 'Date,Day,Status,Total Visits,Doctor Visits,Chemist Visits';
+  const DAYS = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+  const rows = days.map(d=>{
+    const dt = new Date(d.date);
+    return `${d.date},${DAYS[dt.getDay()]},${d.status},${d.visits},${d.doctorVisits},${d.chemistVisits}`;
+  });
+  const name = document.getElementById('modal-name').textContent.replace(/\s+/g,'_');
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([[hdr,...rows].join('\n')],{type:'text/csv'}));
+  a.download = `${name}-days-${state.year}-${String(state.month).padStart(2,'0')}.csv`;
+  a.click();
+}
 document.getElementById('emp-modal').addEventListener('click', e=>{ if(e.target===document.getElementById('emp-modal')) closeModal(); });
 
 // ── Sync ──────────────────────────────────────────────────────────────────────

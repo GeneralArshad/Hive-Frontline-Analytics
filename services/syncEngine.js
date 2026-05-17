@@ -82,19 +82,17 @@ async function _doSync(month, year, logId) {
 
 async function _processEmployee(emp, month, year) {
   try {
-    const { ec, hiveId, name, designation } = hive.parseEmployee(emp);
+    const { ec, hiveId, name, designation, state, hq } = hive.parseEmployee(emp);
     if (!ec) return;
 
-    // Upsert employee
-    await db.upsertEmployee(ec, hiveId, name, designation);
+    // Upsert employee (now includes state + hq)
+    await db.upsertEmployee(ec, hiveId, name, designation, state, hq);
 
     // Tour plans (current month + previous month in parallel)
     const prevMonth = month === 1 ? 12 : month - 1;
     const prevYear  = month === 1 ? year - 1 : year;
 
-    const [plans] = await Promise.all([
-      hive.fetchTourPlans(hiveId),
-    ]);
+    const plans = await hive.fetchTourPlans(hiveId);
 
     const { status: curStatus, planCount } = hive.parseTourPlanStatus(plans, month, year);
     const { status: prevStatus }           = hive.parseTourPlanStatus(plans, prevMonth, prevYear);
@@ -104,8 +102,8 @@ async function _processEmployee(emp, month, year) {
       db.upsertTourPlan(ec, prevMonth, prevYear, prevStatus, planCount),
     ]);
 
-    // Day plans
-    const dpSummary = await hive.fetchDayPlans(hiveId, month, year);
+    // Day plans — fetchDayPlans now returns { summary, plans }
+    const { summary: dpSummary } = await hive.fetchDayPlans(hiveId, month, year);
     await db.upsertDayPlan(ec, month, year, dpSummary);
 
   } catch (err) {

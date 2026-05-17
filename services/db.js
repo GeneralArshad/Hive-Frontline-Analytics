@@ -16,6 +16,8 @@ async function initDb() {
       hive_id      TEXT UNIQUE,
       name         TEXT NOT NULL,
       designation  TEXT,
+      state        TEXT,
+      hq           TEXT,
       synced_at    TIMESTAMPTZ DEFAULT NOW()
     );
 
@@ -61,20 +63,52 @@ async function initDb() {
     );
     CREATE INDEX IF NOT EXISTS IDX_session_expire ON session(expire);
   `);
+
+  // Safe migrations for existing databases
+  await pool.query(`
+    ALTER TABLE employees ADD COLUMN IF NOT EXISTS state TEXT;
+    ALTER TABLE employees ADD COLUMN IF NOT EXISTS hq    TEXT;
+  `);
+
   console.log('[db] Schema ready');
 }
 
 // ── Upserts ─────────────────────────────────────────────────────────────────
-async function upsertEmployee(ec, hiveId, name, designation) {
+async function upsertEmployee(ec, hiveId, name, designation, state = null, hq = null) {
   await pool.query(`
-    INSERT INTO employees (ec, hive_id, name, designation, synced_at)
-    VALUES ($1, $2, $3, $4, NOW())
+    INSERT INTO employees (ec, hive_id, name, designation, state, hq, synced_at)
+    VALUES ($1, $2, $3, $4, $5, $6, NOW())
     ON CONFLICT (ec) DO UPDATE SET
       hive_id     = EXCLUDED.hive_id,
       name        = EXCLUDED.name,
       designation = EXCLUDED.designation,
+      state       = EXCLUDED.state,
+      hq          = EXCLUDED.hq,
       synced_at   = NOW()
-  `, [ec, hiveId, name, designation]);
+  `, [ec, hiveId, name, designation, state, hq]);
+}
+
+async function getEmployeeByEc(ec) {
+  const { rows } = await pool.query(
+    'SELECT ec, hive_id, name, designation, state, hq FROM employees WHERE ec=$1',
+    [ec]
+  );
+  return rows[0] || null;
+}
+
+async function getFilterOptions(month, year) {
+  const { rows } = await pool.query(`
+    SELECT DISTINCT
+      NULLIF(TRIM(state), '')       AS state,
+      NULLIF(TRIM(hq), '')          AS hq,
+      NULLIF(TRIM(designation), '') AS designation
+    FROM employees
+    ORDER BY state, hq, designation
+  `);
+  const states = [...new Set(rows.map(r => r.state).filter(Boolean))].sort();
+  const hqs    = [...new Set(rows.map(r => r.hq).filter(Boolean))].sort();
+  const desigs = [...new Set(rows.map(r => r.designation).filter(Boolean))].sort();
+  return { states, hqs, designations: desigs };
 }
 
 async function upsertTourPlan(ec, month, year, status, planCount) {
@@ -146,20 +180,46 @@ async function getSummary(month, year) {
   };
 }
 
-async function getEmployeesWithPlans(month, year) {
+async function getEmployeesWithPlans(month, year, filters = {}) {
+  const prevMonth = month === 1 ? 12 : month - 1;
+  const prevYear  = month === 1 ? year - 1 : year;
+
+  const params = [month, year, prevMonth, prevYear];
+  const wheres = [];
+
+  if (filters.designation) {
+    params.push(filters.designation);
+    wheres.push(`e.designation = $${params.length}`);
+  }
+  if (filters.state) {
+    params.push(filters.state);
+    wheres.push(`e.state = $${params.length}`);
+  }
+  if (filters.hq) {
+    params.push(filters.hq);
+    wheres.push(`e.hq = $${params.length}`);
+  }
+
+  const whereClause = wheres.length ? `WHERE ${wheres.join(' AND ')}` : '';
+
   const { rows } = await pool.query(`
     SELECT
-      e.ec, e.name, e.designation,
+      e.ec, e.name, e.designation, e.state, e.hq,
       COALESCE(tp_cur.status,  'MISSING')  AS may_status,
       COALESCE(tp_cur.plan_count, 0)       AS plan_count,
       COALESCE(tp_prev.status, 'MISSING')  AS apr_status,
-      dp.days_logged, dp.total_visits, dp.avg_vpd, dp.pending_approval
+      COALESCE(dp.days_logged, 0)          AS days_logged,
+      COALESCE(dp.days_with_visits, 0)     AS days_with_visits,
+      COALESCE(dp.total_visits, 0)         AS total_visits,
+      COALESCE(dp.avg_vpd, 0)             AS avg_vpd,
+      COALESCE(dp.pending_approval, 0)     AS pending_approval
     FROM employees e
     LEFT JOIN tour_plans  tp_cur  ON tp_cur.ec=e.ec  AND tp_cur.month=$1  AND tp_cur.year=$2
     LEFT JOIN tour_plans  tp_prev ON tp_prev.ec=e.ec AND tp_prev.month=$3 AND tp_prev.year=$4
-    LEFT JOIN day_plan_summary dp ON dp.ec=e.ec      AND dp.month=$1       AND dp.year=$2
+    LEFT JOIN day_plan_summary dp ON dp.ec=e.ec       AND dp.month=$1      AND dp.year=$2
+    ${whereClause}
     ORDER BY e.name
-  `, [month, year, month === 1 ? 12 : month - 1, month === 1 ? year - 1 : year]);
+  `, params);
   return rows;
 }
 
@@ -220,6 +280,7 @@ async function completeSyncLog(id, employeesFetched, error = null) {
 module.exports = {
   pool, initDb,
   upsertEmployee, upsertTourPlan, upsertDayPlan,
+  getEmployeeByEc, getFilterOptions,
   getSummary, getEmployeesWithPlans, getDesignationBreakdown,
   getTopPerformers, getLastSync, createSyncLog, completeSyncLog,
 };

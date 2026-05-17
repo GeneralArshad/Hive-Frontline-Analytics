@@ -104,13 +104,46 @@ async function fetchDayPlans(employeeId, month, year) {
       console.log('[hive] Day plan sample:', JSON.stringify(plans[0]).slice(0, 600));
       fetchDayPlans._logged = 1;
     }
-    return summariseDayPlans(plans);
+    return { summary: summariseDayPlans(plans), plans };
   } catch (err) {
     console.log(`[hive] fetchDayPlans error for ${employeeId}: ${err.message}`);
-    return { daysLogged: 0, daysWithVisits: 0, totalVisits: 0, avgVpd: 0, pendingApproval: 0 };
+    return { summary: { daysLogged: 0, daysWithVisits: 0, totalVisits: 0, avgVpd: 0, pendingApproval: 0 }, plans: [] };
   }
 }
 fetchDayPlans._logged = 0;
+
+// ── Fetch raw day plans for on-demand drill-down ───────────────────────────
+async function fetchDayPlanDetails(employeeId, month, year) {
+  try {
+    const data = await hiveGet(
+      `/admin/employees/${employeeId}/day-plans?month=${month}&year=${year}`
+    );
+    const plans = Array.isArray(data) ? data : (data.data || data.dayPlans || data.plans || []);
+    // Normalise each plan into { date, visits, status, doctorVisits, chemistVisits }
+    return plans.map(p => {
+      const raw =
+        p.visitCount ?? p.totalVisits ?? p.visits ?? p.noOfVisits ??
+        p.numberOfVisits ?? p.doctorVisits ?? p.doctorsVisited ?? p.totalDoctors ??
+        (Array.isArray(p.doctors) ? p.doctors.length : undefined) ??
+        (Array.isArray(p.chemists) ? p.chemists.length : undefined) ?? 0;
+
+      const dateRaw = p.date ?? p.planDate ?? p.day ?? p.createdAt ?? p.startDate ?? null;
+      const date = dateRaw ? new Date(dateRaw).toISOString().split('T')[0] : null;
+      const status = (p.status ?? p.approvalStatus ?? p.planStatus ?? '').toUpperCase() || 'UNKNOWN';
+
+      return {
+        date,
+        visits: parseInt(raw) || 0,
+        status,
+        doctorVisits:  Array.isArray(p.doctors)  ? p.doctors.length  : (parseInt(p.doctorCount  ?? p.doctorVisits  ?? 0) || 0),
+        chemistVisits: Array.isArray(p.chemists)  ? p.chemists.length : (parseInt(p.chemistCount ?? p.chemistVisits ?? 0) || 0),
+      };
+    }).filter(p => p.date).sort((a, b) => a.date.localeCompare(b.date));
+  } catch (err) {
+    console.log(`[hive] fetchDayPlanDetails error for ${employeeId}: ${err.message}`);
+    return [];
+  }
+}
 
 function summariseDayPlans(plans) {
   if (!plans.length) {
@@ -175,7 +208,26 @@ function parseEmployee(emp) {
       rawDesg.label ?? Object.values(rawDesg).find(v => typeof v === 'string') ?? '';
   }
 
-  return { ec: String(ec).trim(), hiveId: String(hiveId), name, designation };
+  // State: try many field names
+  let state = '';
+  const rawState = emp.state ?? emp.stateName ?? emp.stateId?.name ??
+    emp.geography?.state ?? emp.location?.state ?? emp.area?.state ?? null;
+  if (typeof rawState === 'string') state = rawState;
+  else if (rawState && typeof rawState === 'object') {
+    state = rawState.name ?? rawState.title ?? Object.values(rawState).find(v => typeof v === 'string') ?? '';
+  }
+
+  // HQ: headquarters / base location
+  let hq = '';
+  const rawHq = emp.hq ?? emp.headquarters ?? emp.baseLocation ?? emp.baseCity ??
+    emp.headquarter ?? emp.city ?? emp.location?.city ?? emp.geography?.hq ??
+    emp.area?.name ?? emp.territory ?? null;
+  if (typeof rawHq === 'string') hq = rawHq;
+  else if (rawHq && typeof rawHq === 'object') {
+    hq = rawHq.name ?? rawHq.city ?? rawHq.title ?? Object.values(rawHq).find(v => typeof v === 'string') ?? '';
+  }
+
+  return { ec: String(ec).trim(), hiveId: String(hiveId), name, designation, state, hq };
 }
 parseEmployee._logged = 0;
 
@@ -210,6 +262,6 @@ function parseTourPlanStatus(plans, month, year) {
 }
 
 module.exports = {
-  fetchAllEmployees, fetchTourPlans, fetchDayPlans,
+  fetchAllEmployees, fetchTourPlans, fetchDayPlans, fetchDayPlanDetails,
   parseEmployee, parseTourPlanStatus,
 };
