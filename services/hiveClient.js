@@ -126,7 +126,7 @@ function parseEmployee(emp) {
 
   const ec = emp.employeeCode ?? emp.empCode ?? emp.code ?? emp.ec ?? emp.employeeId ?? emp._id;
   const name = emp.name ?? emp.fullName ?? emp.employeeName ??
-    `${emp.firstName || ''} ${emp.lastName || ''}`.trim() || 'Unknown';
+    (`${emp.firstName || ''} ${emp.lastName || ''}`.trim() || 'Unknown');
   const hiveId = emp._id ?? emp.id ?? ec;
 
   // Designation: handle string, nested object, or alternative field names
