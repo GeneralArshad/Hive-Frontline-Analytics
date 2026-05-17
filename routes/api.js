@@ -1,0 +1,112 @@
+'use strict';
+const express    = require('express');
+const router     = express.Router();
+const db         = require('../services/db');
+const syncEngine = require('../services/syncEngine');
+
+// ── Helper: current month/year with optional override ────────────────────────
+function getMonthYear(query) {
+  const now   = new Date();
+  const month = parseInt(query.month) || now.getMonth() + 1;
+  const year  = parseInt(query.year)  || now.getFullYear();
+  return { month, year };
+}
+
+// ── GET /api/summary ──────────────────────────────────────────────────────────
+router.get('/summary', async (req, res) => {
+  try {
+    const { month, year } = getMonthYear(req.query);
+    const [summary, lastSync] = await Promise.all([
+      db.getSummary(month, year),
+      db.getLastSync(),
+    ]);
+    res.json({ ok: true, month, year, summary, lastSync });
+  } catch (err) {
+    res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
+// ── GET /api/employees ─────────────────────────────────────────────────────────
+// Returns all employees with their tour plan status and visit data
+router.get('/employees', async (req, res) => {
+  try {
+    const { month, year } = getMonthYear(req.query);
+    const employees = await db.getEmployeesWithPlans(month, year);
+    res.json({ ok: true, month, year, count: employees.length, employees });
+  } catch (err) {
+    res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
+// ── GET /api/designations ─────────────────────────────────────────────────────
+router.get('/designations', async (req, res) => {
+  try {
+    const { month, year } = getMonthYear(req.query);
+    const rows = await db.getDesignationBreakdown(month, year);
+    res.json({ ok: true, rows });
+  } catch (err) {
+    res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
+// ── GET /api/top-performers ───────────────────────────────────────────────────
+router.get('/top-performers', async (req, res) => {
+  try {
+    const { month, year } = getMonthYear(req.query);
+    const limit = Math.min(parseInt(req.query.limit) || 10, 50);
+    const rows = await db.getTopPerformers(month, year, limit);
+    res.json({ ok: true, rows });
+  } catch (err) {
+    res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
+// ── GET /api/non-reporters ────────────────────────────────────────────────────
+router.get('/non-reporters', async (req, res) => {
+  try {
+    const { month, year } = getMonthYear(req.query);
+    const all = await db.getEmployeesWithPlans(month, year);
+    const nr  = all.filter(e => ['MISSING', 'DRAFT', 'REJECTED'].includes(e.may_status));
+    res.json({ ok: true, count: nr.length, employees: nr });
+  } catch (err) {
+    res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
+// ── GET /api/sync/status ──────────────────────────────────────────────────────
+router.get('/sync/status', async (req, res) => {
+  try {
+    const state   = syncEngine.getState();
+    const lastLog = await db.getLastSync();
+    res.json({ ok: true, sync: state, lastLog });
+  } catch (err) {
+    res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
+// ── POST /api/sync ────────────────────────────────────────────────────────────
+// Starts an async sync — returns immediately, poll /api/sync/status for progress
+router.post('/sync', async (req, res) => {
+  try {
+    const { month, year } = getMonthYear(req.body || req.query);
+    const result = await syncEngine.runSync(month, year);
+    if (result.alreadyRunning) {
+      return res.status(409).json({ ok: false, message: 'Sync already in progress' });
+    }
+    res.json({ ok: true, message: 'Sync started', logId: result.logId, month, year });
+  } catch (err) {
+    res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
+// ── GET /api/health ───────────────────────────────────────────────────────────
+router.get('/health', async (req, res) => {
+  try {
+    await db.pool.query('SELECT 1');
+    res.json({ ok: true, db: 'connected', ts: new Date() });
+  } catch (err) {
+    res.status(503).json({ ok: false, db: 'error', error: err.message });
+  }
+});
+
+module.exports = router;

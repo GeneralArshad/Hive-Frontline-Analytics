@@ -1,0 +1,1269 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Field Force Analytics — British Biologicals</title>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<style>
+/* ── Albion Design System ──────────────────────────────────────────────────── */
+:root {
+  --royal:    #1B2A6B;
+  --navy:     #0E1740;
+  --mid:      #2B3F8E;
+  --imperial: #C8102E;
+  --green:    #0A7C4A;
+  --gold:     #96700A;
+  --bg:       #F6F7FB;
+  --card:     #FFFFFF;
+  --border:   #E4E7F0;
+  --txt:      #101828;
+  --txt2:     #475467;
+  --txt3:     #98A2B3;
+  --font:     'Plus Jakarta Sans', system-ui, sans-serif;
+  --mono:     'JetBrains Mono', 'Fira Code', monospace;
+  --radius:   10px;
+  --shadow:   0 2px 12px rgba(14,23,64,.08);
+  --shadow-h: 0 8px 28px rgba(14,23,64,.14);
+  --topbar-h: 60px;
+}
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { scroll-behavior: smooth; }
+body {
+  font-family: var(--font);
+  background: var(--bg);
+  color: var(--txt);
+  min-height: 100vh;
+  padding-top: var(--topbar-h);
+}
+
+/* ── Topbar ─────────────────────────────────────────────────────────────────── */
+#topbar {
+  position: fixed;
+  top: 0; left: 0; right: 0;
+  height: var(--topbar-h);
+  background: rgba(14,23,64,.96);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border-bottom: 3px solid var(--imperial);
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 0 20px;
+  z-index: 100;
+}
+.topbar-logo { display: flex; align-items: center; gap: 10px; text-decoration: none; flex-shrink: 0; }
+.topbar-logo svg { width: 32px; height: 32px; }
+.logo-name { font-size: 13px; font-weight: 800; color: #fff; letter-spacing: -.02em; line-height: 1.2; }
+.logo-sub  { font-size: 9px; color: rgba(255,255,255,.45); text-transform: uppercase; letter-spacing: .08em; }
+.topbar-divider { width: 1px; height: 28px; background: rgba(255,255,255,.12); flex-shrink: 0; }
+.topbar-title { font-size: 14px; font-weight: 700; color: #fff; letter-spacing: -.03em; white-space: nowrap; }
+.topbar-nav { display: flex; align-items: center; gap: 2px; flex: 1; overflow-x: auto; }
+.topbar-nav::-webkit-scrollbar { display: none; }
+.tab-btn {
+  background: none; border: none; cursor: pointer;
+  font-family: var(--font); font-size: 12px; font-weight: 600;
+  color: rgba(255,255,255,.55);
+  padding: 6px 13px;
+  border-radius: 6px;
+  white-space: nowrap;
+  transition: color .15s, background .15s;
+  position: relative;
+}
+.tab-btn:hover { color: rgba(255,255,255,.85); background: rgba(255,255,255,.06); }
+.tab-btn.active { color: #fff; }
+.tab-btn.active::after {
+  content: '';
+  position: absolute;
+  bottom: -14px; left: 13px; right: 13px;
+  height: 2px;
+  background: var(--imperial);
+  border-radius: 1px;
+}
+.topbar-right { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
+.month-sel {
+  background: rgba(255,255,255,.08);
+  border: 1px solid rgba(255,255,255,.14);
+  border-radius: 6px;
+  color: #fff;
+  font-family: var(--font);
+  font-size: 12px;
+  font-weight: 600;
+  padding: 5px 10px;
+  cursor: pointer;
+  outline: none;
+}
+.month-sel option { background: #1B2A6B; }
+#sync-btn {
+  display: flex; align-items: center; gap: 6px;
+  background: var(--imperial);
+  border: none; border-radius: 6px;
+  color: #fff; font-family: var(--font);
+  font-size: 12px; font-weight: 700;
+  padding: 6px 14px; cursor: pointer;
+  transition: background .15s;
+}
+#sync-btn:hover { background: #a50d26; }
+#sync-btn:disabled { opacity: .5; cursor: not-allowed; }
+#sync-btn svg { width: 14px; height: 14px; }
+.user-chip {
+  display: flex; align-items: center; gap: 6px;
+  font-size: 12px; font-weight: 600; color: rgba(255,255,255,.65);
+}
+.user-chip span { font-family: var(--mono); font-size: 11px; }
+#logout-btn {
+  background: rgba(255,255,255,.08);
+  border: 1px solid rgba(255,255,255,.14);
+  border-radius: 6px;
+  color: rgba(255,255,255,.65);
+  font-family: var(--font);
+  font-size: 11px; font-weight: 600;
+  padding: 5px 10px; cursor: pointer;
+  transition: background .15s, color .15s;
+}
+#logout-btn:hover { background: rgba(200,16,46,.2); color: #fff; }
+
+/* ── Main layout ─────────────────────────────────────────────────────────────── */
+.main { max-width: 1400px; margin: 0 auto; padding: 24px 20px; }
+
+/* ── KPI Strip ──────────────────────────────────────────────────────────────── */
+.kpi-strip {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 12px;
+  margin-bottom: 24px;
+}
+@media (max-width: 1100px) { .kpi-strip { grid-template-columns: repeat(3, 1fr); } }
+@media (max-width: 640px)  { .kpi-strip { grid-template-columns: repeat(2, 1fr); } }
+.kpi-card {
+  background: var(--card);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  border: 1px solid var(--border);
+  padding: 16px 18px;
+  transition: box-shadow .2s, transform .2s;
+}
+.kpi-card:hover { box-shadow: var(--shadow-h); transform: translateY(-2px); }
+.kpi-label { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .08em; color: var(--txt2); margin-bottom: 8px; }
+.kpi-value { font-size: 28px; font-weight: 800; letter-spacing: -.04em; color: var(--txt); font-family: var(--mono); line-height: 1; }
+.kpi-value.green { color: var(--green); }
+.kpi-value.red   { color: var(--imperial); }
+.kpi-value.blue  { color: var(--royal); }
+.kpi-sub { font-size: 11px; color: var(--txt3); margin-top: 4px; }
+
+/* ── Tab panes ──────────────────────────────────────────────────────────────── */
+.tab-pane { display: none; }
+.tab-pane.active { display: block; }
+
+/* ── Cards / panels ─────────────────────────────────────────────────────────── */
+.panel {
+  background: var(--card);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  border: 1px solid var(--border);
+  overflow: hidden;
+  margin-bottom: 20px;
+}
+.panel-head {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 14px 20px;
+  border-bottom: 1px solid var(--border);
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.panel-title { font-size: 13px; font-weight: 700; letter-spacing: -.02em; }
+.panel-actions { display: flex; align-items: center; gap: 8px; }
+
+/* ── Overview grid ──────────────────────────────────────────────────────────── */
+.overview-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+@media (max-width: 900px) { .overview-grid { grid-template-columns: 1fr; } }
+.chart-box { padding: 20px; }
+.chart-box canvas { max-height: 260px; }
+
+/* ── Search input ───────────────────────────────────────────────────────────── */
+.search-input {
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  font-family: var(--font);
+  font-size: 12px;
+  padding: 6px 12px;
+  outline: none;
+  width: 200px;
+  transition: border-color .15s;
+  color: var(--txt);
+}
+.search-input:focus { border-color: var(--royal); }
+.filter-sel {
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  font-family: var(--font);
+  font-size: 12px;
+  padding: 6px 10px;
+  outline: none;
+  color: var(--txt);
+  background: #fff;
+  cursor: pointer;
+}
+
+/* ── Tables ─────────────────────────────────────────────────────────────────── */
+.tbl-wrap { overflow-x: auto; }
+table {
+  width: 100%; border-collapse: collapse;
+  font-size: 12px; white-space: nowrap;
+}
+thead th {
+  background: #F9FAFB;
+  font-size: 10px; font-weight: 700;
+  text-transform: uppercase; letter-spacing: .07em;
+  color: var(--txt2);
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--border);
+  text-align: left;
+  position: sticky; top: 0;
+  cursor: pointer; user-select: none;
+}
+thead th:hover { background: #F1F3FA; }
+tbody tr { border-bottom: 1px solid var(--border); transition: background .1s; cursor: pointer; }
+tbody tr:last-child { border-bottom: none; }
+tbody tr:hover { background: #F6F7FB; }
+tbody td { padding: 10px 14px; color: var(--txt); vertical-align: middle; }
+.ec-code { font-family: var(--mono); font-size: 11px; color: var(--royal); font-weight: 500; }
+.name-cell { font-weight: 600; }
+.desg-cell { color: var(--txt2); font-size: 11px; }
+
+/* ── Status badges ──────────────────────────────────────────────────────────── */
+.badge {
+  display: inline-flex; align-items: center;
+  font-size: 10px; font-weight: 700;
+  text-transform: uppercase; letter-spacing: .06em;
+  padding: 3px 8px; border-radius: 4px;
+  white-space: nowrap;
+}
+.badge-approved  { background: rgba(10,124,74,.1);  color: var(--green); border: 1px solid rgba(10,124,74,.25); }
+.badge-submitted { background: rgba(27,42,107,.1);  color: var(--royal); border: 1px solid rgba(27,42,107,.25); }
+.badge-draft     { background: rgba(150,112,10,.1); color: var(--gold);  border: 1px solid rgba(150,112,10,.25); }
+.badge-rejected  { background: rgba(200,16,46,.1);  color: var(--imperial); border: 1px solid rgba(200,16,46,.25); }
+.badge-missing   { background: rgba(152,162,179,.1); color: var(--txt2); border: 1px solid rgba(152,162,179,.25); }
+.badge-na        { background: transparent; color: var(--txt3); border: 1px solid var(--border); }
+
+/* ── Action buttons ─────────────────────────────────────────────────────────── */
+.btn-sm {
+  display: inline-flex; align-items: center; gap: 4px;
+  background: none; border: 1px solid var(--border);
+  border-radius: 5px; font-family: var(--font);
+  font-size: 11px; font-weight: 600; color: var(--txt2);
+  padding: 4px 10px; cursor: pointer;
+  transition: all .15s;
+}
+.btn-sm:hover { border-color: var(--royal); color: var(--royal); }
+.btn-primary {
+  background: var(--royal); border: none; border-radius: 6px;
+  color: #fff; font-family: var(--font);
+  font-size: 12px; font-weight: 700;
+  padding: 7px 14px; cursor: pointer;
+  transition: background .15s;
+}
+.btn-primary:hover { background: var(--mid); }
+
+/* ── Rank badge ─────────────────────────────────────────────────────────────── */
+.rank { font-family: var(--mono); font-weight: 700; font-size: 13px; color: var(--txt3); }
+.rank-1 { color: #B8860B; }
+.rank-2 { color: #808080; }
+.rank-3 { color: #CD7F32; }
+
+/* ── Sync progress overlay ──────────────────────────────────────────────────── */
+#sync-overlay {
+  position: fixed; inset: 0;
+  background: rgba(14,23,64,.55);
+  backdrop-filter: blur(4px);
+  display: none; align-items: center; justify-content: center;
+  z-index: 200;
+}
+#sync-overlay.open { display: flex; }
+.sync-card {
+  background: #fff;
+  border-radius: 14px;
+  box-shadow: 0 20px 60px rgba(14,23,64,.25);
+  padding: 32px 36px;
+  width: 420px;
+  text-align: center;
+}
+.sync-card h3 { font-size: 18px; font-weight: 800; letter-spacing: -.03em; margin-bottom: 6px; }
+.sync-card p  { font-size: 13px; color: var(--txt2); margin-bottom: 24px; }
+.sync-phase-label {
+  font-size: 11px; font-weight: 700; text-transform: uppercase;
+  letter-spacing: .08em; color: var(--txt2); margin-bottom: 8px;
+}
+.progress-track {
+  background: var(--border); border-radius: 999px; height: 8px;
+  overflow: hidden; margin-bottom: 12px;
+}
+.progress-fill {
+  height: 100%; background: var(--royal);
+  border-radius: 999px;
+  transition: width .4s ease;
+}
+.sync-count { font-family: var(--mono); font-size: 13px; color: var(--txt); margin-bottom: 20px; }
+.sync-dismiss-btn {
+  background: var(--border); border: none; border-radius: 6px;
+  font-family: var(--font); font-size: 12px; font-weight: 600;
+  color: var(--txt2); padding: 8px 18px; cursor: pointer;
+  transition: background .15s;
+}
+.sync-dismiss-btn:hover { background: #dde1ec; }
+
+/* ── Employee modal ─────────────────────────────────────────────────────────── */
+#emp-modal {
+  position: fixed; inset: 0;
+  background: rgba(14,23,64,.55);
+  backdrop-filter: blur(4px);
+  display: none; align-items: center; justify-content: center;
+  z-index: 300; padding: 20px;
+}
+#emp-modal.open { display: flex; }
+.modal-card {
+  background: #fff;
+  border-radius: 14px;
+  box-shadow: 0 20px 60px rgba(14,23,64,.25);
+  width: 100%; max-width: 560px;
+  max-height: 80vh; overflow-y: auto;
+}
+.modal-header {
+  background: linear-gradient(135deg, var(--navy), var(--royal));
+  border-bottom: 3px solid var(--imperial);
+  padding: 24px 28px 20px;
+  border-radius: 14px 14px 0 0;
+}
+.modal-header h3 { font-size: 18px; font-weight: 800; letter-spacing: -.04em; color: #fff; margin-bottom: 4px; }
+.modal-header .ec { font-family: var(--mono); font-size: 12px; color: rgba(255,255,255,.6); }
+.modal-header .desg { font-size: 12px; color: rgba(255,255,255,.55); margin-top: 2px; }
+.modal-body { padding: 24px 28px; }
+.modal-section { margin-bottom: 20px; }
+.modal-section h4 { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .08em; color: var(--txt2); margin-bottom: 10px; }
+.modal-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.modal-stat { background: #F6F7FB; border-radius: 8px; padding: 12px 14px; }
+.modal-stat-label { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .07em; color: var(--txt3); margin-bottom: 4px; }
+.modal-stat-value { font-family: var(--mono); font-size: 20px; font-weight: 700; color: var(--txt); }
+.modal-footer { padding: 16px 28px; border-top: 1px solid var(--border); display: flex; justify-content: flex-end; }
+
+/* ── Toast ──────────────────────────────────────────────────────────────────── */
+#toast {
+  position: fixed; bottom: 24px; right: 24px;
+  background: var(--navy); color: #fff;
+  border-radius: 8px; padding: 12px 18px;
+  font-size: 13px; font-weight: 600;
+  box-shadow: 0 8px 24px rgba(14,23,64,.25);
+  z-index: 500;
+  opacity: 0; transform: translateY(8px);
+  transition: opacity .2s, transform .2s;
+  pointer-events: none;
+}
+#toast.show { opacity: 1; transform: translateY(0); }
+#toast.error { background: var(--imperial); }
+
+/* ── Misc helpers ───────────────────────────────────────────────────────────── */
+.mono { font-family: var(--mono); }
+.text-right { text-align: right; }
+.empty-state { padding: 48px; text-align: center; color: var(--txt3); font-size: 13px; }
+.spinner-inline {
+  display: inline-block; width: 12px; height: 12px;
+  border: 2px solid rgba(255,255,255,.3);
+  border-top-color: #fff; border-radius: 50%;
+  animation: spin .7s linear infinite; vertical-align: middle;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+.pulse { animation: pulse 2s ease-in-out infinite; }
+@keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: .4; } }
+.last-sync-info { font-size: 11px; color: var(--txt3); font-family: var(--mono); }
+
+/* ── Compliance gauge ────────────────────────────────────────────────────────── */
+.gauge-wrap { display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 20px; }
+.gauge-val { font-size: 42px; font-weight: 800; letter-spacing: -.05em; font-family: var(--mono); color: var(--royal); margin-top: -8px; }
+.gauge-label { font-size: 11px; color: var(--txt2); font-weight: 600; text-transform: uppercase; letter-spacing: .08em; }
+</style>
+</head>
+<body>
+
+<!-- ── Topbar ─────────────────────────────────────────────────────────────── -->
+<header id="topbar">
+  <a class="topbar-logo" href="/">
+    <svg viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg">
+      <rect x=".5" y=".5" width="8.5" height="8.5" rx="1.5" fill="#C8102E"/>
+      <rect x="11" y=".5" width="8.5" height="8.5" rx="1.5" fill="#fff" opacity=".9"/>
+      <rect x="21.5" y=".5" width="10" height="8.5" rx="1.5" fill="#C8102E"/>
+      <rect x=".5" y="11" width="8.5" height="8.5" rx="1.5" fill="#fff" opacity=".9"/>
+      <rect x="11" y="11" width="8.5" height="8.5" rx="1.5" fill="#C8102E"/>
+      <rect x="21.5" y="11" width="10" height="8.5" rx="1.5" fill="#fff" opacity=".9"/>
+      <rect x=".5" y="21.5" width="8.5" height="10" rx="1.5" fill="#C8102E"/>
+      <rect x="11" y="21.5" width="8.5" height="10" rx="1.5" fill="#fff" opacity=".9"/>
+      <rect x="21.5" y="21.5" width="10" height="10" rx="1.5" fill="#C8102E"/>
+    </svg>
+    <div>
+      <div class="logo-name">British Biologicals</div>
+      <div class="logo-sub">The Protein People</div>
+    </div>
+  </a>
+  <div class="topbar-divider"></div>
+  <div class="topbar-title">Field Force Analytics</div>
+  <div class="topbar-divider"></div>
+  <nav class="topbar-nav">
+    <button class="tab-btn active" data-tab="overview">Overview</button>
+    <button class="tab-btn" data-tab="tour-plans">Tour Plans</button>
+    <button class="tab-btn" data-tab="visit-activity">Visit Activity</button>
+    <button class="tab-btn" data-tab="top-performers">Top Performers</button>
+    <button class="tab-btn" data-tab="non-reporters">Non-Reporters</button>
+    <button class="tab-btn" data-tab="designations">Designations</button>
+  </nav>
+  <div class="topbar-right">
+    <select class="month-sel" id="month-sel"></select>
+    <button id="sync-btn">
+      <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M13.5 8A5.5 5.5 0 1 1 8 2.5M13.5 2.5v3.5H10"/>
+      </svg>
+      Sync Now
+    </button>
+    <span class="last-sync-info" id="last-sync-info">—</span>
+    <div class="user-chip">👤 <span id="user-label">—</span></div>
+    <button id="logout-btn">Sign Out</button>
+  </div>
+</header>
+
+<!-- ── Main ───────────────────────────────────────────────────────────────── -->
+<div class="main">
+
+  <!-- KPI strip -->
+  <div class="kpi-strip" id="kpi-strip">
+    <div class="kpi-card"><div class="kpi-label">Total Employees</div><div class="kpi-value blue" id="k-total">—</div></div>
+    <div class="kpi-card"><div class="kpi-label">TP Approved</div><div class="kpi-value green" id="k-approved">—</div></div>
+    <div class="kpi-card"><div class="kpi-label">TP Submitted</div><div class="kpi-value blue" id="k-submitted">—</div></div>
+    <div class="kpi-card"><div class="kpi-label">Compliance Rate</div><div class="kpi-value" id="k-compliance">—</div></div>
+    <div class="kpi-card"><div class="kpi-label">Total Visits MTD</div><div class="kpi-value" id="k-visits">—</div></div>
+    <div class="kpi-card"><div class="kpi-label">Non-Reporters</div><div class="kpi-value red" id="k-nonrep">—</div></div>
+  </div>
+
+  <!-- ── Overview ──────────────────────────────────────────────────────────── -->
+  <div class="tab-pane active" id="tab-overview">
+    <div class="overview-grid">
+      <div class="panel">
+        <div class="panel-head"><span class="panel-title">Tour Plan Compliance</span></div>
+        <div class="gauge-wrap" id="gauge-wrap">
+          <canvas id="gauge-chart" width="240" height="180"></canvas>
+          <div class="gauge-val" id="gauge-pct">—%</div>
+          <div class="gauge-label">Plans Approved / Total</div>
+        </div>
+      </div>
+      <div class="panel">
+        <div class="panel-head"><span class="panel-title">Status Distribution</span></div>
+        <div class="chart-box"><canvas id="status-chart"></canvas></div>
+      </div>
+      <div class="panel">
+        <div class="panel-head"><span class="panel-title">Visits by Designation</span></div>
+        <div class="chart-box"><canvas id="desg-chart"></canvas></div>
+      </div>
+      <div class="panel">
+        <div class="panel-head"><span class="panel-title">Sync History</span></div>
+        <div class="tbl-wrap">
+          <table id="sync-history-tbl">
+            <thead><tr>
+              <th>Sync Log ID</th>
+              <th>Employees Fetched</th>
+              <th>Status</th>
+              <th>Completed At</th>
+            </tr></thead>
+            <tbody id="sync-history-body"><tr><td colspan="4" class="empty-state">No sync logs yet.</td></tr></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Tour Plans ────────────────────────────────────────────────────────── -->
+  <div class="tab-pane" id="tab-tour-plans">
+    <div class="panel">
+      <div class="panel-head">
+        <span class="panel-title">Tour Plans — <span id="tp-month-label">—</span></span>
+        <div class="panel-actions">
+          <input class="search-input" type="text" placeholder="Search name or EC…" id="tp-search">
+          <select class="filter-sel" id="tp-filter">
+            <option value="">All Statuses</option>
+            <option value="APPROVED">Approved</option>
+            <option value="SUBMITTED">Submitted</option>
+            <option value="DRAFT">Draft</option>
+            <option value="REJECTED">Rejected</option>
+            <option value="MISSING">Missing</option>
+          </select>
+          <button class="btn-sm" onclick="exportCSV('tp-table', 'tour-plans')">⬇ CSV</button>
+        </div>
+      </div>
+      <div class="tbl-wrap">
+        <table id="tp-table">
+          <thead><tr>
+            <th>EC Code</th>
+            <th>Name</th>
+            <th>Designation</th>
+            <th>Current Month</th>
+            <th>Prev Month</th>
+            <th>Plan Count</th>
+          </tr></thead>
+          <tbody id="tp-body"><tr><td colspan="6" class="empty-state">Loading…</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Visit Activity ────────────────────────────────────────────────────── -->
+  <div class="tab-pane" id="tab-visit-activity">
+    <div class="panel">
+      <div class="panel-head">
+        <span class="panel-title">Visit Activity — <span id="va-month-label">—</span></span>
+        <div class="panel-actions">
+          <input class="search-input" type="text" placeholder="Search name or EC…" id="va-search">
+          <button class="btn-sm" onclick="exportCSV('va-table', 'visit-activity')">⬇ CSV</button>
+        </div>
+      </div>
+      <div class="tbl-wrap">
+        <table id="va-table">
+          <thead><tr>
+            <th>EC Code</th>
+            <th>Name</th>
+            <th>Designation</th>
+            <th>Days Logged</th>
+            <th>Days w/ Visits</th>
+            <th class="text-right">Total Visits</th>
+            <th class="text-right">Avg VPD</th>
+            <th>Pending Apvl</th>
+          </tr></thead>
+          <tbody id="va-body"><tr><td colspan="8" class="empty-state">Loading…</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Top Performers ────────────────────────────────────────────────────── -->
+  <div class="tab-pane" id="tab-top-performers">
+    <div class="panel">
+      <div class="panel-head">
+        <span class="panel-title">Top Performers — <span id="perf-month-label">—</span></span>
+        <div class="panel-actions">
+          <input class="search-input" type="text" placeholder="Search…" id="perf-search">
+          <button class="btn-sm" onclick="exportCSV('perf-table', 'top-performers')">⬇ CSV</button>
+        </div>
+      </div>
+      <div class="tbl-wrap">
+        <table id="perf-table">
+          <thead><tr>
+            <th>#</th>
+            <th>EC Code</th>
+            <th>Name</th>
+            <th>Designation</th>
+            <th class="text-right">Total Visits</th>
+            <th class="text-right">Days Active</th>
+            <th class="text-right">Avg VPD</th>
+            <th>Tour Plan</th>
+          </tr></thead>
+          <tbody id="perf-body"><tr><td colspan="8" class="empty-state">Loading…</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Non-Reporters ──────────────────────────────────────────────────────── -->
+  <div class="tab-pane" id="tab-non-reporters">
+    <div class="panel">
+      <div class="panel-head">
+        <span class="panel-title">Non-Reporters — <span id="nr-month-label">—</span></span>
+        <div class="panel-actions">
+          <input class="search-input" type="text" placeholder="Search…" id="nr-search">
+          <select class="filter-sel" id="nr-filter">
+            <option value="">All Statuses</option>
+            <option value="MISSING">Missing</option>
+            <option value="DRAFT">Draft</option>
+            <option value="REJECTED">Rejected</option>
+          </select>
+          <button class="btn-sm" onclick="exportCSV('nr-table', 'non-reporters')">⬇ CSV</button>
+        </div>
+      </div>
+      <div class="tbl-wrap">
+        <table id="nr-table">
+          <thead><tr>
+            <th>EC Code</th>
+            <th>Name</th>
+            <th>Designation</th>
+            <th>Current Status</th>
+            <th>Prev Month</th>
+            <th>Visits MTD</th>
+          </tr></thead>
+          <tbody id="nr-body"><tr><td colspan="6" class="empty-state">Loading…</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Designations ──────────────────────────────────────────────────────── -->
+  <div class="tab-pane" id="tab-designations">
+    <div class="overview-grid">
+      <div class="panel">
+        <div class="panel-head"><span class="panel-title">Designation Breakdown</span></div>
+        <div class="chart-box"><canvas id="desg-bar-chart"></canvas></div>
+      </div>
+      <div class="panel">
+        <div class="panel-head"><span class="panel-title">Detail Table</span></div>
+        <div class="tbl-wrap">
+          <table id="desg-table">
+            <thead><tr>
+              <th>Designation</th>
+              <th class="text-right">Employees</th>
+              <th class="text-right">Approved</th>
+              <th class="text-right">Submitted</th>
+              <th class="text-right">Missing</th>
+              <th class="text-right">Compliance %</th>
+            </tr></thead>
+            <tbody id="desg-body"><tr><td colspan="6" class="empty-state">Loading…</td></tr></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div><!-- /.main -->
+
+<!-- ── Sync overlay ───────────────────────────────────────────────────────── -->
+<div id="sync-overlay">
+  <div class="sync-card">
+    <h3>Syncing from Hive API</h3>
+    <p>Fetching employee records and tour plans. This takes 2–4 minutes.</p>
+    <div class="sync-phase-label" id="sync-phase-label">Initialising…</div>
+    <div class="progress-track"><div class="progress-fill" id="sync-progress-fill" style="width:0%"></div></div>
+    <div class="sync-count" id="sync-count">—</div>
+    <button class="sync-dismiss-btn" id="sync-dismiss-btn">Run in Background</button>
+  </div>
+</div>
+
+<!-- ── Employee modal ─────────────────────────────────────────────────────── -->
+<div id="emp-modal">
+  <div class="modal-card">
+    <div class="modal-header">
+      <h3 id="modal-name">—</h3>
+      <div class="ec" id="modal-ec">—</div>
+      <div class="desg" id="modal-desg">—</div>
+    </div>
+    <div class="modal-body">
+      <div class="modal-section">
+        <h4>Tour Plan Status</h4>
+        <div class="modal-grid">
+          <div class="modal-stat">
+            <div class="modal-stat-label">Current Month</div>
+            <div class="modal-stat-value" id="modal-cur-status">—</div>
+          </div>
+          <div class="modal-stat">
+            <div class="modal-stat-label">Previous Month</div>
+            <div class="modal-stat-value" id="modal-prev-status">—</div>
+          </div>
+        </div>
+      </div>
+      <div class="modal-section">
+        <h4>Visit Activity (MTD)</h4>
+        <div class="modal-grid">
+          <div class="modal-stat">
+            <div class="modal-stat-label">Days Logged</div>
+            <div class="modal-stat-value" id="modal-days-logged">—</div>
+          </div>
+          <div class="modal-stat">
+            <div class="modal-stat-label">Days with Visits</div>
+            <div class="modal-stat-value" id="modal-days-visits">—</div>
+          </div>
+          <div class="modal-stat">
+            <div class="modal-stat-label">Total Visits</div>
+            <div class="modal-stat-value" id="modal-total-visits">—</div>
+          </div>
+          <div class="modal-stat">
+            <div class="modal-stat-label">Avg Visits/Day</div>
+            <div class="modal-stat-value" id="modal-avg-vpd">—</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-primary" onclick="closeModal()">Close</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── Toast ──────────────────────────────────────────────────────────────── -->
+<div id="toast"></div>
+
+<script>
+'use strict';
+
+// ── State ────────────────────────────────────────────────────────────────────
+const state = {
+  month:       null,
+  year:        null,
+  employees:   [],
+  summary:     null,
+  topPerf:     [],
+  nonRep:      [],
+  designations:[],
+  syncPoll:    null,
+  charts:      {},
+};
+
+// ── Month selector ────────────────────────────────────────────────────────────
+const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+function buildMonthSelector() {
+  const sel  = document.getElementById('month-sel');
+  const now  = new Date();
+  const opts = [];
+  for (let d = 0; d < 6; d++) {
+    const dt = new Date(now.getFullYear(), now.getMonth() - d, 1);
+    opts.push({ m: dt.getMonth()+1, y: dt.getFullYear(), label: `${MONTHS[dt.getMonth()]} ${dt.getFullYear()}` });
+  }
+  sel.innerHTML = opts.map(o => `<option value="${o.m}-${o.y}">${o.label}</option>`).join('');
+  sel.addEventListener('change', () => {
+    const [m, y] = sel.value.split('-').map(Number);
+    state.month = m; state.year = y;
+    refreshAll();
+  });
+  const [m, y] = sel.value.split('-').map(Number);
+  state.month = m; state.year = y;
+}
+
+function monthLabel() {
+  return `${MONTHS[(state.month||1)-1]} ${state.year||''}`;
+}
+
+// ── API ───────────────────────────────────────────────────────────────────────
+async function apiFetch(path, opts = {}) {
+  const qs = `month=${state.month}&year=${state.year}`;
+  const url = path.includes('?') ? `${path}&${qs}` : `${path}?${qs}`;
+  const res = await fetch(url, opts);
+  if (res.status === 401) { window.location.href = '/login'; return null; }
+  const data = await res.json();
+  if (!data.ok && data.error) throw new Error(data.error);
+  return data;
+}
+
+// ── Auth ──────────────────────────────────────────────────────────────────────
+async function checkAuth() {
+  try {
+    const d = await fetch('/auth/me').then(r => r.json());
+    if (!d.authenticated) { window.location.href = '/login'; return false; }
+    document.getElementById('user-label').textContent = d.username;
+    return true;
+  } catch { window.location.href = '/login'; return false; }
+}
+
+document.getElementById('logout-btn').addEventListener('click', async () => {
+  await fetch('/auth/logout', { method: 'POST' });
+  window.location.href = '/login';
+});
+
+// ── Status badge helper ───────────────────────────────────────────────────────
+function badge(status) {
+  if (!status || status === '—') return '<span class="badge badge-na">—</span>';
+  const cls = {
+    APPROVED: 'badge-approved', SUBMITTED: 'badge-submitted',
+    DRAFT: 'badge-draft', REJECTED: 'badge-rejected', MISSING: 'badge-missing',
+  }[status] || 'badge-na';
+  return `<span class="badge ${cls}">${status}</span>`;
+}
+
+function fmtNum(n) {
+  if (n == null || n === '') return '—';
+  return Number(n).toLocaleString();
+}
+
+// ── Load summary ──────────────────────────────────────────────────────────────
+async function loadSummary() {
+  try {
+    const d = await apiFetch('/api/summary');
+    if (!d) return;
+    state.summary = d.summary;
+    const s = d.summary;
+
+    document.getElementById('k-total').textContent     = fmtNum(s.totalEmployees);
+    document.getElementById('k-approved').textContent  = fmtNum(s.approved);
+    document.getElementById('k-submitted').textContent = fmtNum(s.submitted);
+
+    const total = s.totalEmployees || 1;
+    const comp  = Math.round(((s.approved||0) / total) * 100);
+    document.getElementById('k-compliance').textContent = comp + '%';
+    document.getElementById('k-compliance').className = 'kpi-value ' + (comp >= 80 ? 'green' : comp >= 50 ? 'blue' : 'red');
+    document.getElementById('k-visits').textContent   = fmtNum(s.totalVisits);
+    const missing = (total - (s.approved||0) - (s.submitted||0) - (s.draft||0));
+    document.getElementById('k-nonrep').textContent  = fmtNum(Math.max(0, missing));
+
+    renderGauge(comp);
+    renderStatusChart(s);
+
+    if (d.lastSync) {
+      const dt = new Date(d.lastSync.completed_at || d.lastSync.completedAt);
+      document.getElementById('last-sync-info').textContent = 'Synced ' + dt.toLocaleTimeString();
+    }
+  } catch (e) { toast('Failed to load summary: ' + e.message, true); }
+}
+
+// ── Load employees ─────────────────────────────────────────────────────────────
+async function loadEmployees() {
+  try {
+    const d = await apiFetch('/api/employees');
+    if (!d) return;
+    state.employees = d.employees || [];
+    renderTourPlans();
+    renderVisitActivity();
+  } catch (e) { toast('Failed to load employees: ' + e.message, true); }
+}
+
+// ── Load top performers ────────────────────────────────────────────────────────
+async function loadTopPerformers() {
+  try {
+    const d = await apiFetch('/api/top-performers?limit=50');
+    if (!d) return;
+    state.topPerf = d.rows || [];
+    renderTopPerformers();
+  } catch (e) { toast('Failed to load top performers: ' + e.message, true); }
+}
+
+// ── Load non-reporters ─────────────────────────────────────────────────────────
+async function loadNonReporters() {
+  try {
+    const d = await apiFetch('/api/non-reporters');
+    if (!d) return;
+    state.nonRep = d.employees || [];
+    renderNonReporters();
+  } catch (e) { toast('Failed to load non-reporters: ' + e.message, true); }
+}
+
+// ── Load designations ──────────────────────────────────────────────────────────
+async function loadDesignations() {
+  try {
+    const d = await apiFetch('/api/designations');
+    if (!d) return;
+    state.designations = d.rows || [];
+    renderDesignations();
+  } catch (e) { toast('Failed to load designations: ' + e.message, true); }
+}
+
+// ── Charts ─────────────────────────────────────────────────────────────────────
+function renderGauge(pct) {
+  document.getElementById('gauge-pct').textContent = pct + '%';
+  const ctx = document.getElementById('gauge-chart').getContext('2d');
+  if (state.charts.gauge) state.charts.gauge.destroy();
+  state.charts.gauge = new Chart(ctx, {
+    type: 'doughnut',
+    data: {
+      datasets: [{ data: [pct, 100-pct],
+        backgroundColor: [pct >= 80 ? '#0A7C4A' : pct >= 50 ? '#1B2A6B' : '#C8102E', '#E4E7F0'],
+        borderWidth: 0, hoverOffset: 0 }]
+    },
+    options: { cutout: '72%', plugins: { legend: { display: false }, tooltip: { enabled: false } }, animation: { duration: 600 } }
+  });
+}
+
+function renderStatusChart(s) {
+  const ctx = document.getElementById('status-chart').getContext('2d');
+  if (state.charts.status) state.charts.status.destroy();
+  const approved  = s.approved  || 0;
+  const submitted = s.submitted || 0;
+  const draft     = s.draft     || 0;
+  const missing   = Math.max(0, (s.totalEmployees||0) - approved - submitted - draft);
+  state.charts.status = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: ['Approved','Submitted','Draft','Missing'],
+      datasets: [{ data: [approved, submitted, draft, missing],
+        backgroundColor: ['rgba(10,124,74,.8)','rgba(27,42,107,.8)','rgba(150,112,10,.8)','rgba(152,162,179,.5)'],
+        borderRadius: 4, borderSkipped: false }]
+    },
+    options: { plugins: { legend: { display: false } }, scales: {
+      x: { grid: { display: false } },
+      y: { grid: { color: '#F0F2FA' }, ticks: { precision: 0 } }
+    }}
+  });
+}
+
+function renderDesgChart(rows) {
+  const ctx = document.getElementById('desg-chart').getContext('2d');
+  if (state.charts.desg) state.charts.desg.destroy();
+  const labels = rows.map(r => r.designation || '—');
+  const data   = rows.map(r => Number(r.approved || 0));
+  state.charts.desg = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [{ label: 'Approved', data,
+        backgroundColor: 'rgba(27,42,107,.75)', borderRadius: 4, borderSkipped: false }]
+    },
+    options: { indexAxis: 'y',
+      plugins: { legend: { display: false } },
+      scales: { x: { grid: { color: '#F0F2FA' }, ticks: { precision: 0 } }, y: { grid: { display: false } } }
+    }
+  });
+}
+
+function renderDesgBarChart(rows) {
+  const ctx = document.getElementById('desg-bar-chart').getContext('2d');
+  if (state.charts.desgBar) state.charts.desgBar.destroy();
+  state.charts.desgBar = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: rows.map(r => r.designation || '—'),
+      datasets: [
+        { label: 'Approved',  data: rows.map(r => r.approved  || 0), backgroundColor: 'rgba(10,124,74,.8)',   borderRadius: 3, borderSkipped: false },
+        { label: 'Submitted', data: rows.map(r => r.submitted || 0), backgroundColor: 'rgba(27,42,107,.75)',  borderRadius: 3, borderSkipped: false },
+        { label: 'Missing',   data: rows.map(r => r.missing   || 0), backgroundColor: 'rgba(152,162,179,.5)', borderRadius: 3, borderSkipped: false },
+      ]
+    },
+    options: { plugins: { legend: { position: 'top' } },
+      scales: { x: { stacked: true, grid: { display: false } }, y: { stacked: true, grid: { color: '#F0F2FA' }, ticks: { precision: 0 } } }
+    }
+  });
+}
+
+// ── Render Tour Plans ─────────────────────────────────────────────────────────
+function renderTourPlans(filter, search) {
+  const label = monthLabel();
+  document.getElementById('tp-month-label').textContent = label;
+  let rows = state.employees;
+  if (filter) rows = rows.filter(e => (e.may_status || e.current_status || 'MISSING') === filter);
+  if (search) {
+    const q = search.toLowerCase();
+    rows = rows.filter(e => (e.name||'').toLowerCase().includes(q) || (e.ec||'').toLowerCase().includes(q));
+  }
+  const curField  = 'may_status';
+  const prevField = 'prev_status';
+  const body = document.getElementById('tp-body');
+  if (!rows.length) { body.innerHTML = '<tr><td colspan="6" class="empty-state">No records match.</td></tr>'; return; }
+  body.innerHTML = rows.map(e => {
+    const cur  = e[curField]  || 'MISSING';
+    const prev = e[prevField] || '—';
+    return `<tr onclick="openModal('${e.ec}')">
+      <td class="ec-code">${e.ec||'—'}</td>
+      <td class="name-cell">${e.name||'—'}</td>
+      <td class="desg-cell">${e.designation||'—'}</td>
+      <td>${badge(cur)}</td>
+      <td>${badge(prev !== '—' ? prev : null)}</td>
+      <td class="mono">${fmtNum(e.plan_count)}</td>
+    </tr>`;
+  }).join('');
+}
+
+// ── Render Visit Activity ──────────────────────────────────────────────────────
+function renderVisitActivity(search) {
+  const label = monthLabel();
+  document.getElementById('va-month-label').textContent = label;
+  let rows = state.employees;
+  if (search) {
+    const q = search.toLowerCase();
+    rows = rows.filter(e => (e.name||'').toLowerCase().includes(q) || (e.ec||'').toLowerCase().includes(q));
+  }
+  const body = document.getElementById('va-body');
+  if (!rows.length) { body.innerHTML = '<tr><td colspan="8" class="empty-state">No records.</td></tr>'; return; }
+  body.innerHTML = rows.map(e => `<tr onclick="openModal('${e.ec}')">
+    <td class="ec-code">${e.ec||'—'}</td>
+    <td class="name-cell">${e.name||'—'}</td>
+    <td class="desg-cell">${e.designation||'—'}</td>
+    <td class="mono">${fmtNum(e.days_logged)}</td>
+    <td class="mono">${fmtNum(e.days_with_visits)}</td>
+    <td class="mono text-right">${fmtNum(e.total_visits)}</td>
+    <td class="mono text-right">${e.avg_vpd != null ? Number(e.avg_vpd).toFixed(1) : '—'}</td>
+    <td>${e.pending_approval ? `<span class="badge badge-draft">${e.pending_approval}</span>` : '—'}</td>
+  </tr>`).join('');
+}
+
+// ── Render Top Performers ──────────────────────────────────────────────────────
+function renderTopPerformers(search) {
+  document.getElementById('perf-month-label').textContent = monthLabel();
+  let rows = state.topPerf;
+  if (search) {
+    const q = search.toLowerCase();
+    rows = rows.filter(r => (r.name||'').toLowerCase().includes(q) || (r.ec||'').toLowerCase().includes(q));
+  }
+  const body = document.getElementById('perf-body');
+  if (!rows.length) { body.innerHTML = '<tr><td colspan="8" class="empty-state">No data. Run a sync first.</td></tr>'; return; }
+  body.innerHTML = rows.map((r, i) => {
+    const rank = i + 1;
+    const rankCls = rank <= 3 ? `rank rank-${rank}` : 'rank';
+    const status = r.may_status || r.current_status || '—';
+    return `<tr onclick="openModal('${r.ec}')">
+      <td><span class="${rankCls}">#${rank}</span></td>
+      <td class="ec-code">${r.ec||'—'}</td>
+      <td class="name-cell">${r.name||'—'}</td>
+      <td class="desg-cell">${r.designation||'—'}</td>
+      <td class="mono text-right">${fmtNum(r.total_visits)}</td>
+      <td class="mono text-right">${fmtNum(r.days_with_visits)}</td>
+      <td class="mono text-right">${r.avg_vpd != null ? Number(r.avg_vpd).toFixed(1) : '—'}</td>
+      <td>${badge(status !== '—' ? status : null)}</td>
+    </tr>`;
+  }).join('');
+}
+
+// ── Render Non-Reporters ───────────────────────────────────────────────────────
+function renderNonReporters(filter, search) {
+  document.getElementById('nr-month-label').textContent = monthLabel();
+  let rows = state.nonRep;
+  if (filter) rows = rows.filter(e => (e.may_status || 'MISSING') === filter);
+  if (search) {
+    const q = search.toLowerCase();
+    rows = rows.filter(e => (e.name||'').toLowerCase().includes(q) || (e.ec||'').toLowerCase().includes(q));
+  }
+  const body = document.getElementById('nr-body');
+  if (!rows.length) { body.innerHTML = '<tr><td colspan="6" class="empty-state">No non-reporters this month! 🎉</td></tr>'; return; }
+  body.innerHTML = rows.map(e => {
+    const cur  = e.may_status || 'MISSING';
+    const prev = e.prev_status || '—';
+    return `<tr onclick="openModal('${e.ec}')">
+      <td class="ec-code">${e.ec||'—'}</td>
+      <td class="name-cell">${e.name||'—'}</td>
+      <td class="desg-cell">${e.designation||'—'}</td>
+      <td>${badge(cur)}</td>
+      <td>${badge(prev !== '—' ? prev : null)}</td>
+      <td class="mono">${fmtNum(e.total_visits)}</td>
+    </tr>`;
+  }).join('');
+}
+
+// ── Render Designations ────────────────────────────────────────────────────────
+function renderDesignations() {
+  const rows = state.designations;
+  renderDesgBarChart(rows);
+  const body = document.getElementById('desg-body');
+  if (!rows.length) { body.innerHTML = '<tr><td colspan="6" class="empty-state">No data.</td></tr>'; return; }
+  body.innerHTML = rows.map(r => {
+    const total = Number(r.total || 0);
+    const approved = Number(r.approved || 0);
+    const pct = total ? Math.round((approved / total) * 100) : 0;
+    return `<tr>
+      <td class="name-cell">${r.designation||'—'}</td>
+      <td class="mono text-right">${fmtNum(total)}</td>
+      <td class="mono text-right" style="color:var(--green)">${fmtNum(r.approved)}</td>
+      <td class="mono text-right" style="color:var(--royal)">${fmtNum(r.submitted)}</td>
+      <td class="mono text-right" style="color:var(--txt3)">${fmtNum(r.missing)}</td>
+      <td class="mono text-right"><strong>${pct}%</strong></td>
+    </tr>`;
+  }).join('');
+}
+
+// ── Employee modal ─────────────────────────────────────────────────────────────
+function openModal(ec) {
+  const e = state.employees.find(x => x.ec === ec)
+         || state.topPerf.find(x => x.ec === ec)
+         || state.nonRep.find(x => x.ec === ec);
+  if (!e) return;
+  document.getElementById('modal-name').textContent = e.name || '—';
+  document.getElementById('modal-ec').textContent   = 'EC: ' + (e.ec || '—');
+  document.getElementById('modal-desg').textContent = e.designation || '—';
+  document.getElementById('modal-cur-status').innerHTML  = badge(e.may_status || 'MISSING');
+  document.getElementById('modal-prev-status').innerHTML = badge(e.prev_status || null);
+  document.getElementById('modal-days-logged').textContent  = fmtNum(e.days_logged);
+  document.getElementById('modal-days-visits').textContent  = fmtNum(e.days_with_visits);
+  document.getElementById('modal-total-visits').textContent = fmtNum(e.total_visits);
+  document.getElementById('modal-avg-vpd').textContent      = e.avg_vpd != null ? Number(e.avg_vpd).toFixed(1) : '—';
+  document.getElementById('emp-modal').classList.add('open');
+}
+function closeModal() { document.getElementById('emp-modal').classList.remove('open'); }
+document.getElementById('emp-modal').addEventListener('click', e => {
+  if (e.target === document.getElementById('emp-modal')) closeModal();
+});
+
+// ── Sync ──────────────────────────────────────────────────────────────────────
+const PHASES = {
+  idle: 'Idle',
+  auth: 'Authenticating with Hive API…',
+  employees: 'Fetching employee list…',
+  plans: 'Processing tour plans & visits…',
+  done: 'Sync complete ✓',
+  error: 'Sync failed ✗',
+};
+
+document.getElementById('sync-btn').addEventListener('click', async () => {
+  const btn = document.getElementById('sync-btn');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner-inline"></span> Starting…';
+  try {
+    const d = await fetch(`/api/sync?month=${state.month}&year=${state.year}`, { method: 'POST' });
+    const j = await d.json();
+    if (d.status === 409) { toast('Sync already in progress'); btn.disabled = false; btn.innerHTML = '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13.5 8A5.5 5.5 0 1 1 8 2.5M13.5 2.5v3.5H10"/></svg> Sync Now'; return; }
+    if (!j.ok) throw new Error(j.error || j.message);
+    openSyncOverlay();
+    startSyncPoll();
+  } catch (e) {
+    toast('Sync error: ' + e.message, true);
+    btn.disabled = false;
+    btn.innerHTML = '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13.5 8A5.5 5.5 0 1 1 8 2.5M13.5 2.5v3.5H10"/></svg> Sync Now';
+  }
+});
+
+function openSyncOverlay() {
+  document.getElementById('sync-overlay').classList.add('open');
+  document.getElementById('sync-progress-fill').style.width = '0%';
+  document.getElementById('sync-phase-label').textContent = 'Starting…';
+  document.getElementById('sync-count').textContent = '—';
+}
+
+function closeSyncOverlay() { document.getElementById('sync-overlay').classList.remove('open'); }
+
+document.getElementById('sync-dismiss-btn').addEventListener('click', closeSyncOverlay);
+
+function startSyncPoll() {
+  if (state.syncPoll) clearInterval(state.syncPoll);
+  state.syncPoll = setInterval(pollSync, 1800);
+}
+
+async function pollSync() {
+  try {
+    const d = await fetch(`/api/sync/status?month=${state.month}&year=${state.year}`).then(r => r.json());
+    const s = d.sync;
+    const phaseName = PHASES[s.phase] || s.phase;
+    document.getElementById('sync-phase-label').textContent = phaseName;
+
+    let pct = 0;
+    if (s.phase === 'auth' || s.phase === 'employees') pct = 5;
+    else if (s.phase === 'plans') {
+      pct = s.totalEmployees ? Math.round((s.processed / s.totalEmployees) * 90) + 5 : 10;
+    } else if (s.phase === 'done' || s.phase === 'error') pct = 100;
+    document.getElementById('sync-progress-fill').style.width = pct + '%';
+
+    if (s.totalEmployees) {
+      document.getElementById('sync-count').textContent =
+        `${s.processed.toLocaleString()} / ${s.totalEmployees.toLocaleString()} employees processed`;
+    }
+
+    const btn = document.getElementById('sync-btn');
+    if (s.phase === 'done') {
+      clearInterval(state.syncPoll);
+      state.syncPoll = null;
+      btn.disabled = false;
+      btn.innerHTML = '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13.5 8A5.5 5.5 0 1 1 8 2.5M13.5 2.5v3.5H10"/></svg> Sync Now';
+      toast('Sync complete — data refreshed!');
+      closeSyncOverlay();
+      refreshAll();
+    } else if (s.phase === 'error') {
+      clearInterval(state.syncPoll);
+      state.syncPoll = null;
+      btn.disabled = false;
+      btn.innerHTML = '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13.5 8A5.5 5.5 0 1 1 8 2.5M13.5 2.5v3.5H10"/></svg> Sync Now';
+      toast('Sync failed: ' + (s.error || 'Unknown error'), true);
+      closeSyncOverlay();
+    } else if (!s.running) {
+      // Not running and not done — stale poll
+      clearInterval(state.syncPoll);
+      state.syncPoll = null;
+      btn.disabled = false;
+      btn.innerHTML = '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13.5 8A5.5 5.5 0 1 1 8 2.5M13.5 2.5v3.5H10"/></svg> Sync Now';
+    }
+  } catch (e) { /* ignore poll errors */ }
+}
+
+// ── Toast ─────────────────────────────────────────────────────────────────────
+let toastTimer;
+function toast(msg, isError = false) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.className = 'show' + (isError ? ' error' : '');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => { el.className = ''; }, 3200);
+}
+
+// ── Tab switching ─────────────────────────────────────────────────────────────
+const loaded = new Set(['overview']);
+document.querySelectorAll('.tab-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    const tab = btn.dataset.tab;
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
+    btn.classList.add('active');
+    document.getElementById('tab-' + tab).classList.add('active');
+    if (!loaded.has(tab)) {
+      loaded.add(tab);
+      if (tab === 'tour-plans' || tab === 'visit-activity') loadEmployees();
+      if (tab === 'top-performers') loadTopPerformers();
+      if (tab === 'non-reporters') loadNonReporters();
+      if (tab === 'designations') loadDesignations();
+    }
+  });
+});
+
+// ── Search / filter wiring ────────────────────────────────────────────────────
+function wire(searchId, filterId, renderFn) {
+  const s = document.getElementById(searchId);
+  const f = filterId ? document.getElementById(filterId) : null;
+  const go = () => renderFn(f ? f.value : undefined, s.value.trim());
+  if (s) s.addEventListener('input', go);
+  if (f) f.addEventListener('change', go);
+}
+wire('tp-search', 'tp-filter', renderTourPlans);
+wire('va-search', null, (_, q) => renderVisitActivity(q));
+wire('perf-search', null, (_, q) => renderTopPerformers(q));
+wire('nr-search', 'nr-filter', renderNonReporters);
+
+// ── CSV Export ────────────────────────────────────────────────────────────────
+function exportCSV(tableId, filename) {
+  const tbl  = document.getElementById(tableId);
+  const rows = [...tbl.querySelectorAll('tr')].map(tr =>
+    [...tr.querySelectorAll('th,td')].map(td => {
+      const t = td.innerText.trim().replace(/"/g, '""');
+      return `"${t}"`;
+    }).join(',')
+  );
+  const blob = new Blob([rows.join('\n')], { type: 'text/csv' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `${filename}-${state.year}-${String(state.month).padStart(2,'0')}.csv`;
+  a.click();
+}
+
+// ── Load sync history ──────────────────────────────────────────────────────────
+async function loadSyncHistory() {
+  try {
+    const d = await fetch('/api/sync/status').then(r => r.json());
+    if (d.lastLog) {
+      const log = d.lastLog;
+      const dt  = log.completed_at ? new Date(log.completed_at).toLocaleString() : '—';
+      const ok  = !log.error_message;
+      document.getElementById('sync-history-body').innerHTML = `<tr>
+        <td class="mono">#${log.id}</td>
+        <td class="mono">${fmtNum(log.employees_fetched)}</td>
+        <td>${ok ? '<span class="badge badge-approved">Success</span>' : '<span class="badge badge-rejected">Failed</span>'}</td>
+        <td class="mono">${dt}</td>
+      </tr>`;
+    }
+    // Resume polling if sync was running when page loaded
+    if (d.sync && d.sync.running) {
+      document.getElementById('sync-btn').disabled = true;
+      document.getElementById('sync-btn').innerHTML = '<span class="spinner-inline pulse"></span> Syncing…';
+      startSyncPoll();
+    }
+  } catch {}
+}
+
+// ── Refresh all ───────────────────────────────────────────────────────────────
+async function refreshAll() {
+  loaded.clear();
+  loaded.add('overview');
+  // Reload all open tabs
+  await loadSummary();
+  await loadSyncHistory();
+  if (document.getElementById('tab-tour-plans').classList.contains('active') ||
+      document.getElementById('tab-visit-activity').classList.contains('active')) {
+    await loadEmployees();
+  }
+  if (document.getElementById('tab-top-performers').classList.contains('active')) await loadTopPerformers();
+  if (document.getElementById('tab-non-reporters').classList.contains('active'))  await loadNonReporters();
+  if (document.getElementById('tab-designations').classList.contains('active'))   await loadDesignations();
+}
+
+// ── Boot ──────────────────────────────────────────────────────────────────────
+(async () => {
+  const ok = await checkAuth();
+  if (!ok) return;
+  buildMonthSelector();
+  await loadSummary();
+  await loadSyncHistory();
+  // Preload employees for default visible tab
+  await loadEmployees();
+})();
+</script>
+</body>
+</html>

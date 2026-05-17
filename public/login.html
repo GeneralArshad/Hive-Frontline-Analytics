@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Sign In — British Biologicals Analytics</title>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root{--royal:#1B2A6B;--navy:#0E1740;--imperial:#C8102E;--green:#0A7C4A;--bg:#F6F7FB;--border:#E4E7F0;--txt:#101828;--txt2:#475467;--font:'Plus Jakarta Sans',system-ui,sans-serif}
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:var(--font);background:var(--bg);min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px}
+  .card{background:#fff;border-radius:16px;box-shadow:0 4px 24px rgba(14,23,64,.12);width:100%;max-width:420px;overflow:hidden}
+  .card-header{background:linear-gradient(135deg,var(--navy),var(--royal));padding:32px 36px 28px;border-bottom:3px solid var(--imperial)}
+  .logo-row{display:flex;align-items:center;gap:10px;margin-bottom:20px}
+  .logo-svg{width:40px;height:40px;flex-shrink:0}
+  .logo-text-main{font-size:14px;font-weight:800;color:#fff;letter-spacing:-.02em}
+  .logo-text-sub{font-size:10px;color:rgba(255,255,255,.5);text-transform:uppercase;letter-spacing:.06em}
+  .card-header h1{font-size:22px;font-weight:800;color:#fff;letter-spacing:-.04em;margin-bottom:4px}
+  .card-header p{font-size:13px;color:rgba(255,255,255,.6)}
+  .card-body{padding:32px 36px}
+  .field{margin-bottom:20px}
+  label{display:block;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--txt2);margin-bottom:6px}
+  input{width:100%;padding:11px 14px;border:1px solid var(--border);border-radius:8px;font-size:14px;font-family:var(--font);outline:none;color:var(--txt);transition:border-color .15s,box-shadow .15s}
+  input:focus{border-color:var(--royal);box-shadow:0 0 0 3px rgba(27,42,107,.12)}
+  .btn{width:100%;padding:13px;background:var(--royal);color:#fff;border:none;border-radius:8px;font-size:14px;font-weight:700;font-family:var(--font);cursor:pointer;transition:background .15s;letter-spacing:-.01em}
+  .btn:hover{background:#2B3F8E}
+  .btn:disabled{opacity:.6;cursor:not-allowed}
+  .error{background:rgba(200,16,46,.07);border:1px solid rgba(200,16,46,.2);color:#8B000A;border-radius:8px;padding:10px 14px;font-size:13px;margin-bottom:16px;display:none}
+  .footer{text-align:center;font-size:11px;color:var(--txt2);margin-top:20px;line-height:1.6}
+  .spinner{display:inline-block;width:14px;height:14px;border:2px solid rgba(255,255,255,.3);border-top-color:#fff;border-radius:50%;animation:spin .7s linear infinite;vertical-align:middle;margin-right:6px}
+  @keyframes spin{to{transform:rotate(360deg)}}
+</style>
+</head>
+<body>
+<div class="card">
+  <div class="card-header">
+    <div class="logo-row">
+      <svg class="logo-svg" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg">
+        <rect x="1" y="1" width="11" height="11" rx="2" fill="#C8102E"/>
+        <rect x="14" y="1" width="11" height="11" rx="2" fill="#fff" opacity=".9"/>
+        <rect x="27" y="1" width="12" height="11" rx="2" fill="#C8102E"/>
+        <rect x="1" y="14" width="11" height="11" rx="2" fill="#fff" opacity=".9"/>
+        <rect x="14" y="14" width="11" height="11" rx="2" fill="#C8102E"/>
+        <rect x="27" y="14" width="12" height="11" rx="2" fill="#fff" opacity=".9"/>
+        <rect x="1" y="27" width="11" height="12" rx="2" fill="#C8102E"/>
+        <rect x="14" y="27" width="11" height="12" rx="2" fill="#fff" opacity=".9"/>
+        <rect x="27" y="27" width="12" height="12" rx="2" fill="#C8102E"/>
+      </svg>
+      <div>
+        <div class="logo-text-main">British Biologicals</div>
+        <div class="logo-text-sub">The Protein People</div>
+      </div>
+    </div>
+    <h1>Field Force Analytics</h1>
+    <p>Internal dashboard — authorised personnel only</p>
+  </div>
+  <div class="card-body">
+    <div class="error" id="error-msg">Invalid username or password.</div>
+    <form id="login-form">
+      <div class="field">
+        <label>Username</label>
+        <input type="text" id="username" name="username" autocomplete="username" placeholder="Enter username" required>
+      </div>
+      <div class="field">
+        <label>Password</label>
+        <input type="password" id="password" name="password" autocomplete="current-password" placeholder="Enter password" required>
+      </div>
+      <button class="btn" type="submit" id="login-btn">Sign In</button>
+    </form>
+    <p class="footer">British Biologicals Pvt. Ltd. · Hive Frontline Analytics<br>For access, contact your IT administrator</p>
+  </div>
+</div>
+
+<script>
+document.getElementById('login-form').addEventListener('submit', async e => {
+  e.preventDefault();
+  const btn = document.getElementById('login-btn');
+  const err = document.getElementById('error-msg');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span>Signing in…';
+  err.style.display = 'none';
+
+  try {
+    const res = await fetch('/auth/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        username: document.getElementById('username').value,
+        password: document.getElementById('password').value,
+      }),
+    });
+    const data = await res.json();
+    if (data.ok) {
+      window.location.href = '/';
+    } else {
+      err.textContent = data.message || 'Invalid credentials.';
+      err.style.display = 'block';
+      btn.disabled = false;
+      btn.textContent = 'Sign In';
+    }
+  } catch {
+    err.textContent = 'Connection error. Please try again.';
+    err.style.display = 'block';
+    btn.disabled = false;
+    btn.textContent = 'Sign In';
+  }
+});
+</script>
+</body>
+</html>
