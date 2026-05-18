@@ -67,6 +67,28 @@ async function initDb() {
       stats_json   JSONB NOT NULL
     );
 
+    CREATE TABLE IF NOT EXISTS doctors (
+      doctor_code       TEXT PRIMARY KEY,
+      hive_id           TEXT,
+      full_name         TEXT,
+      specialization    TEXT,
+      qualification     TEXT,
+      category          TEXT,
+      approval_status   TEXT,
+      status            TEXT,
+      doctor_type       TEXT,
+      practice_type     TEXT,
+      clinic_name       TEXT,
+      city              TEXT,
+      state             TEXT,
+      pincode           TEXT,
+      gender            TEXT,
+      avg_patients_per_day INTEGER DEFAULT 0,
+      total_visits      INTEGER DEFAULT 0,
+      rep_count         INTEGER DEFAULT 1,
+      synced_at         TIMESTAMPTZ DEFAULT NOW()
+    );
+
     CREATE INDEX IF NOT EXISTS IDX_session_expire ON session(expire);
   `);
 
@@ -285,11 +307,8 @@ async function completeSyncLog(id, employeesFetched, error = null) {
 
 // ── Doctor cache ─────────────────────────────────────────────────────────────
 async function storeDoctorStats(stats) {
-  await pool.query(`DELETE FROM doctor_cache`);   // keep only latest
-  await pool.query(
-    `INSERT INTO doctor_cache (stats_json) VALUES ($1)`,
-    [JSON.stringify(stats)]
-  );
+  await pool.query(`DELETE FROM doctor_cache`);
+  await pool.query(`INSERT INTO doctor_cache (stats_json) VALUES ($1)`, [JSON.stringify(stats)]);
 }
 
 async function getDoctorStats() {
@@ -300,6 +319,90 @@ async function getDoctorStats() {
   return { ...rows[0].stats_json, computedAt: rows[0].computed_at };
 }
 
+// ── Doctor records ─────────────────────────────────────────────────────────
+async function upsertDoctor(d) {
+  await pool.query(`
+    INSERT INTO doctors (
+      doctor_code, hive_id, full_name, specialization, qualification,
+      category, approval_status, status, doctor_type, practice_type,
+      clinic_name, city, state, pincode, gender,
+      avg_patients_per_day, total_visits, rep_count, synced_at
+    ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,NOW())
+    ON CONFLICT (doctor_code) DO UPDATE SET
+      full_name = EXCLUDED.full_name,
+      specialization = EXCLUDED.specialization,
+      qualification = EXCLUDED.qualification,
+      category = EXCLUDED.category,
+      approval_status = EXCLUDED.approval_status,
+      status = EXCLUDED.status,
+      doctor_type = EXCLUDED.doctor_type,
+      practice_type = EXCLUDED.practice_type,
+      clinic_name = EXCLUDED.clinic_name,
+      city = EXCLUDED.city,
+      state = EXCLUDED.state,
+      pincode = EXCLUDED.pincode,
+      gender = EXCLUDED.gender,
+      avg_patients_per_day = EXCLUDED.avg_patients_per_day,
+      total_visits = EXCLUDED.total_visits,
+      rep_count = EXCLUDED.rep_count,
+      synced_at = NOW()
+  `, [
+    d.doctor_code, d.hive_id, d.full_name,
+    d.specialization, d.qualification,
+    d.category, d.approval_status, d.status,
+    d.doctor_type, d.practice_type, d.clinic_name,
+    d.city, d.state, d.pincode, d.gender,
+    d.avg_patients_per_day || 0, d.total_visits || 0, d.rep_count || 1,
+  ]);
+}
+
+async function clearDoctors() {
+  await pool.query(`DELETE FROM doctors`);
+}
+
+async function getDoctors({ search, specialization, category, approvalStatus, state, limit = 100, offset = 0 } = {}) {
+  const params = [];
+  const wheres = [];
+
+  if (search) {
+    params.push(`%${search.toLowerCase()}%`);
+    wheres.push(`(LOWER(full_name) LIKE $${params.length} OR LOWER(doctor_code) LIKE $${params.length} OR LOWER(clinic_name) LIKE $${params.length})`);
+  }
+  if (specialization) { params.push(specialization); wheres.push(`specialization ILIKE '%' || $${params.length} || '%'`); }
+  if (category)       { params.push(category);       wheres.push(`category = $${params.length}`); }
+  if (approvalStatus) { params.push(approvalStatus); wheres.push(`approval_status = $${params.length}`); }
+  if (state)          { params.push(state);          wheres.push(`state = $${params.length}`); }
+
+  const where = wheres.length ? `WHERE ${wheres.join(' AND ')}` : '';
+
+  const countRes = await pool.query(`SELECT COUNT(*) FROM doctors ${where}`, params);
+  const total = parseInt(countRes.rows[0].count);
+
+  params.push(limit, offset);
+  const { rows } = await pool.query(`
+    SELECT doctor_code, hive_id, full_name, specialization, qualification,
+           category, approval_status, status, doctor_type, practice_type,
+           clinic_name, city, state, pincode, gender,
+           avg_patients_per_day, total_visits, rep_count
+    FROM doctors ${where}
+    ORDER BY rep_count DESC, full_name
+    LIMIT $${params.length - 1} OFFSET $${params.length}
+  `, params);
+
+  return { total, rows };
+}
+
+async function getDoctorFilterOptions() {
+  const { rows } = await pool.query(`
+    SELECT
+      ARRAY_AGG(DISTINCT specialization ORDER BY specialization) FILTER (WHERE specialization IS NOT NULL) AS specializations,
+      ARRAY_AGG(DISTINCT category ORDER BY category) FILTER (WHERE category IS NOT NULL) AS categories,
+      ARRAY_AGG(DISTINCT state ORDER BY state) FILTER (WHERE state IS NOT NULL) AS states
+    FROM doctors
+  `);
+  return rows[0] || {};
+}
+
 module.exports = {
   pool, initDb,
   upsertEmployee, upsertTourPlan, upsertDayPlan,
@@ -307,4 +410,5 @@ module.exports = {
   getSummary, getEmployeesWithPlans, getDesignationBreakdown,
   getTopPerformers, getLastSync, createSyncLog, completeSyncLog,
   storeDoctorStats, getDoctorStats,
+  upsertDoctor, clearDoctors, getDoctors, getDoctorFilterOptions,
 };

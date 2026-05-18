@@ -167,6 +167,36 @@ router.get('/doctors/sync/status', async (req, res) => {
   res.json({ ok: true, ...doctorEngine.getState() });
 });
 
+// ── GET /api/doctors/list ─────────────────────────────────────────────────────
+// Paginated, searchable, filterable doctor table from DB
+router.get('/doctors/list', async (req, res) => {
+  try {
+    const limit  = Math.min(parseInt(req.query.limit)  || 50, 200);
+    const offset = parseInt(req.query.offset) || 0;
+    const result = await db.getDoctors({
+      search:        req.query.search        || null,
+      specialization:req.query.specialization|| null,
+      category:      req.query.category      || null,
+      approvalStatus:req.query.approvalStatus|| null,
+      state:         req.query.state         || null,
+      limit, offset,
+    });
+    res.json({ ok: true, ...result, limit, offset });
+  } catch (err) {
+    res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
+// ── GET /api/doctors/filter-options ──────────────────────────────────────────
+router.get('/doctors/filter-options', async (req, res) => {
+  try {
+    const opts = await db.getDoctorFilterOptions();
+    res.json({ ok: true, ...opts });
+  } catch (err) {
+    res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
 // ── GET /api/health ───────────────────────────────────────────────────────────
 router.get('/health', async (req, res) => {
   try {

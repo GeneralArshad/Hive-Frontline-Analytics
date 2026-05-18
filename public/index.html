@@ -777,10 +777,25 @@ tbody td { padding: 10px 16px; color: var(--txt); vertical-align: middle; }
           </div>
         </div>
 
+        <!-- Charts row 3: Qualification + Gender -->
+        <div class="grid-2" style="margin-bottom:18px">
+          <div class="panel">
+            <div class="panel-head"><div class="panel-title">Qualification Breakdown</div><div class="panel-sub">MBBS · MD · MS · others</div></div>
+            <div class="chart-box"><canvas id="dr-qual-chart" style="max-height:220px"></canvas></div>
+          </div>
+          <div class="panel">
+            <div class="panel-head"><div class="panel-title">Gender Split</div><div class="panel-sub">Male · Female · Other</div></div>
+            <div class="chart-box" style="display:flex;align-items:center;gap:24px">
+              <canvas id="dr-gender-chart" style="max-height:200px;max-width:200px"></canvas>
+              <div id="dr-gender-legend" style="font-size:12px;line-height:2"></div>
+            </div>
+          </div>
+        </div>
+
         <!-- State table -->
-        <div class="panel">
+        <div class="panel" style="margin-bottom:18px">
           <div class="panel-head">
-            <div><div class="panel-title">State-wise Doctor Distribution</div><div class="panel-sub">Unique doctors registered per state</div></div>
+            <div><div class="panel-title">State-wise Distribution</div><div class="panel-sub">Unique doctors per state (normalized)</div></div>
             <div class="panel-actions">
               <span style="font-size:11px;color:var(--txt3)" id="dr-computed-at"></span>
               <button class="btn-sm" id="dr-refresh-btn">↻ Refresh</button>
@@ -791,6 +806,37 @@ tbody td { padding: 10px 16px; color: var(--txt); vertical-align: middle; }
               <thead><tr><th>#</th><th>State</th><th class="text-right">Doctors</th><th>Coverage</th></tr></thead>
               <tbody id="dr-state-body"></tbody>
             </table>
+          </div>
+        </div>
+
+        <!-- Doctor list -->
+        <div class="panel">
+          <div class="panel-head">
+            <div><div class="panel-title">Doctor Registry</div><div class="panel-sub" id="dr-list-sub">All registered doctors</div></div>
+            <div class="panel-actions" style="flex-wrap:wrap;gap:6px">
+              <input class="search-input" type="text" placeholder="Search name, code, clinic…" id="dr-search" style="width:220px">
+              <select class="filter-sel" id="dr-f-spec" style="max-width:160px"><option value="">All Specializations</option></select>
+              <select class="filter-sel" id="dr-f-cat"><option value="">All Categories</option></select>
+              <select class="filter-sel" id="dr-f-appr"><option value="">All Statuses</option><option value="APPROVED">Approved</option><option value="PENDING">Pending</option><option value="REJECTED">Rejected</option></select>
+              <select class="filter-sel" id="dr-f-state" style="max-width:140px"><option value="">All States</option></select>
+            </div>
+          </div>
+          <div class="tbl-wrap">
+            <table id="dr-list-table">
+              <thead><tr>
+                <th>Code</th><th>Name</th><th>Specialization</th><th>Qualification</th>
+                <th>Category</th><th>Status</th><th>Practice Type</th>
+                <th>City</th><th>State</th><th class="text-right">Reps</th><th class="text-right">Avg Pts/Day</th>
+              </tr></thead>
+              <tbody id="dr-list-body"><tr><td colspan="11" class="empty-state">—</td></tr></tbody>
+            </table>
+          </div>
+          <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 16px;border-top:1px solid var(--border);font-size:12px;color:var(--txt3)">
+            <span id="dr-page-info">—</span>
+            <div style="display:flex;gap:6px">
+              <button class="btn-sm" id="dr-prev-btn" disabled>← Prev</button>
+              <button class="btn-sm" id="dr-next-btn" disabled>Next →</button>
+            </div>
           </div>
         </div>
 
@@ -1585,10 +1631,30 @@ function renderDoctorStats(d) {
     </tr>`;
   }).join('');
 
+  // Qualification bar chart (top 12)
+  const qualEntries = Object.entries(d.byQualification || {}).slice(0, 12);
+  renderChart('dr-qual-chart', 'bar', {
+    labels: qualEntries.map(([k]) => k || '—'),
+    datasets: [{ data: qualEntries.map(([,v]) => v),
+      backgroundColor: 'rgba(6,148,162,.75)', borderRadius: 5, borderSkipped: false }]
+  }, { indexAxis:'y', plugins:{legend:{display:false}},
+    scales:{x:{grid:{color:'#F2F4F7'},ticks:{precision:0}},y:{grid:{display:false},ticks:{font:{size:11}}}} });
+
+  // Gender doughnut
+  const genderEntries = Object.entries(d.byGender || {});
+  const GENDER_COLORS = { male:'#1B2A6B', female:'#C8102E', unknown:'#98A2B3', other:'#F79009' };
+  renderDoughnutWithLegend('dr-gender-chart', 'dr-gender-legend', genderEntries,
+    e => GENDER_COLORS[e?.toLowerCase()] || '#98A2B3');
+
   // Show badge on sidebar with pending count
   const pending = d.byApprovalStatus?.PENDING || 0;
   const badge = document.getElementById('dr-nav-badge');
   if (pending > 0) { badge.textContent = pending + ' pending'; badge.style.display = ''; }
+
+  // Load doctor list & filter options
+  loadDoctorFilterOptions();
+  drListPage = 0;
+  loadDoctorList();
 }
 
 function renderChart(id, type, data, options) {
@@ -1626,6 +1692,102 @@ document.addEventListener('click', async e => {
     startDrPoll();
   }
 });
+
+// ── Doctor list ───────────────────────────────────────────────────────────────
+let drListPage  = 0;
+const DR_LIMIT  = 50;
+const drFilters = { search:'', spec:'', cat:'', appr:'', state:'' };
+
+async function loadDoctorFilterOptions() {
+  try {
+    const d = await fetch('/api/doctors/filter-options').then(r => r.json());
+    if (!d.ok) return;
+
+    const specSel = document.getElementById('dr-f-spec');
+    const specCur = specSel.value;
+    specSel.innerHTML = '<option value="">All Specializations</option>' +
+      (d.specializations || []).map(s => `<option value="${s}"${s===specCur?' selected':''}>${s}</option>`).join('');
+
+    const catSel = document.getElementById('dr-f-cat');
+    const catCur = catSel.value;
+    catSel.innerHTML = '<option value="">All Categories</option>' +
+      (d.categories || []).map(c => `<option value="${c}"${c===catCur?' selected':''}>${c}</option>`).join('');
+
+    const stateSel = document.getElementById('dr-f-state');
+    const stateCur = stateSel.value;
+    stateSel.innerHTML = '<option value="">All States</option>' +
+      (d.states || []).map(s => `<option value="${s}"${s===stateCur?' selected':''}>${s}</option>`).join('');
+  } catch (e) { console.error('[dr-filters]', e.message); }
+}
+
+async function loadDoctorList() {
+  const body = document.getElementById('dr-list-body');
+  body.innerHTML = '<tr><td colspan="11" class="empty-state">Loading…</td></tr>';
+
+  const params = new URLSearchParams({
+    limit:  DR_LIMIT,
+    offset: drListPage * DR_LIMIT,
+    ...(drFilters.search && { search: drFilters.search }),
+    ...(drFilters.spec   && { specialization: drFilters.spec }),
+    ...(drFilters.cat    && { category: drFilters.cat }),
+    ...(drFilters.appr   && { approvalStatus: drFilters.appr }),
+    ...(drFilters.state  && { state: drFilters.state }),
+  });
+
+  try {
+    const d = await fetch('/api/doctors/list?' + params).then(r => r.json());
+    if (!d.ok) throw new Error(d.error);
+
+    const { rows = [], total = 0 } = d;
+    const totalPages = Math.ceil(total / DR_LIMIT);
+    const page = drListPage + 1;
+
+    document.getElementById('dr-list-sub').textContent =
+      `${total.toLocaleString()} doctors${Object.values(drFilters).some(Boolean) ? ' (filtered)' : ''}`;
+    document.getElementById('dr-page-info').textContent =
+      total ? `${drListPage * DR_LIMIT + 1}–${Math.min((drListPage + 1) * DR_LIMIT, total)} of ${total.toLocaleString()}` : '—';
+
+    document.getElementById('dr-prev-btn').disabled = drListPage === 0;
+    document.getElementById('dr-next-btn').disabled = page >= totalPages;
+
+    if (!rows.length) {
+      body.innerHTML = '<tr><td colspan="11" class="empty-state">No doctors match your filters.</td></tr>';
+      return;
+    }
+
+    body.innerHTML = rows.map(r => {
+      const apprCls = {APPROVED:'badge-approved',PENDING:'badge-draft',REJECTED:'badge-rejected',UNKNOWN:'badge-missing'}[r.approval_status] || 'badge-missing';
+      return `<tr>
+        <td class="ec-code" style="font-size:11px">${r.doctor_code||'—'}</td>
+        <td class="name-cell">${r.full_name||'—'}</td>
+        <td class="desg-cell">${r.specialization||'—'}</td>
+        <td class="desg-cell">${r.qualification||'—'}</td>
+        <td class="desg-cell">${r.category||'—'}</td>
+        <td><span class="badge ${apprCls}">${r.approval_status||'—'}</span></td>
+        <td class="desg-cell">${r.practice_type?.replace(/_/g,' ')||'—'}</td>
+        <td class="desg-cell">${r.city||'—'}</td>
+        <td class="desg-cell">${r.state||'—'}</td>
+        <td class="mono text-right">${r.rep_count||'—'}</td>
+        <td class="mono text-right">${r.avg_patients_per_day||'—'}</td>
+      </tr>`;
+    }).join('');
+  } catch (err) {
+    body.innerHTML = `<tr><td colspan="11" class="empty-state">Error: ${err.message}</td></tr>`;
+  }
+}
+
+// Wire doctor list filters & pagination
+let drSearchTimer;
+document.getElementById('dr-search').addEventListener('input', e => {
+  clearTimeout(drSearchTimer);
+  drSearchTimer = setTimeout(() => { drFilters.search = e.target.value.trim(); drListPage = 0; loadDoctorList(); }, 350);
+});
+document.getElementById('dr-f-spec').addEventListener('change',  e => { drFilters.spec  = e.target.value; drListPage=0; loadDoctorList(); });
+document.getElementById('dr-f-cat').addEventListener('change',   e => { drFilters.cat   = e.target.value; drListPage=0; loadDoctorList(); });
+document.getElementById('dr-f-appr').addEventListener('change',  e => { drFilters.appr  = e.target.value; drListPage=0; loadDoctorList(); });
+document.getElementById('dr-f-state').addEventListener('change', e => { drFilters.state = e.target.value; drListPage=0; loadDoctorList(); });
+document.getElementById('dr-prev-btn').addEventListener('click', () => { if (drListPage > 0) { drListPage--; loadDoctorList(); } });
+document.getElementById('dr-next-btn').addEventListener('click', () => { drListPage++; loadDoctorList(); });
 
 // ── Boot ──────────────────────────────────────────────────────────────────────
 (async () => {
