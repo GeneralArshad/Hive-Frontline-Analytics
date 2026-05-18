@@ -422,6 +422,11 @@ tbody td { padding: 10px 16px; color: var(--txt); vertical-align: middle; }
       <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M2 12h3V6H2zM6.5 12h3V3h-3zM11 12h3V8h-3z"/></svg>
       Designations
     </button>
+    <button class="nav-item" data-tab="doctors">
+      <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="8" cy="5" r="3"/><path d="M3 14c0-2.8 2.2-5 5-5s5 2.2 5 5"/><path d="M8 10v4M6 12h4"/></svg>
+      Doctors
+      <span class="nav-badge" id="dr-nav-badge" style="display:none"></span>
+    </button>
   </nav>
 
   <div class="sb-footer">
@@ -696,6 +701,112 @@ tbody td { padding: 10px 16px; color: var(--txt); vertical-align: middle; }
         </div>
       </div>
     </div>
+
+    <!-- ── Doctors ──────────────────────────────────────────────────────────── -->
+    <div class="tab-pane" id="tab-doctors">
+
+      <!-- Computing overlay -->
+      <div id="dr-computing" style="display:none">
+        <div class="panel" style="padding:40px;text-align:center">
+          <div style="font-size:32px;margin-bottom:12px">🔬</div>
+          <div style="font-size:16px;font-weight:700;margin-bottom:6px">Analysing Doctor Registry</div>
+          <div style="font-size:13px;color:var(--txt3);margin-bottom:20px">Scanning all 503 reps' doctor lists. This takes 3–4 minutes.</div>
+          <div class="progress-track" style="max-width:400px;margin:0 auto 10px"><div class="progress-fill" id="dr-prog-fill" style="width:0%"></div></div>
+          <div style="font-size:12px;color:var(--txt3);font-variant-numeric:tabular-nums" id="dr-prog-label">Starting…</div>
+        </div>
+      </div>
+
+      <!-- Stats (shown when data is ready) -->
+      <div id="dr-stats" style="display:none">
+
+        <!-- KPI row -->
+        <div class="kpi-strip" style="margin-bottom:20px">
+          <div class="kpi-card">
+            <div class="kpi-icon blue"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="10" cy="7" r="3"/><path d="M3 17c0-3.3 3.1-6 7-6s7 2.7 7 6"/></svg></div>
+            <div class="kpi-meta">
+              <div class="kpi-label">Unique Doctors</div>
+              <div class="kpi-value" id="dr-k-unique">—</div>
+              <span class="kpi-badge neutral">Across all territories</span>
+            </div>
+          </div>
+          <div class="kpi-card">
+            <div class="kpi-icon teal"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M10 3v14M3 10h14"/></svg></div>
+            <div class="kpi-meta">
+              <div class="kpi-label">Total Assignments</div>
+              <div class="kpi-value" id="dr-k-assign">—</div>
+              <span class="kpi-badge neutral">Rep–doctor links</span>
+            </div>
+          </div>
+          <div class="kpi-card">
+            <div class="kpi-icon purple"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="10" cy="10" r="7"/><path d="M10 7v3l2 2"/></svg></div>
+            <div class="kpi-meta">
+              <div class="kpi-label">Shared Coverage</div>
+              <div class="kpi-value" id="dr-k-overlap">—</div>
+              <span class="kpi-badge neutral">Doctors in multiple territories</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Charts row 1 -->
+        <div class="grid-2" style="margin-bottom:18px">
+          <div class="panel">
+            <div class="panel-head"><div class="panel-title">Specialization Breakdown</div><div class="panel-sub">Top 12 specializations</div></div>
+            <div class="chart-box"><canvas id="dr-spec-chart" style="max-height:280px"></canvas></div>
+          </div>
+          <div class="panel">
+            <div class="panel-head"><div class="panel-title">Category Split</div><div class="panel-sub">Supercore · Core · Non-core</div></div>
+            <div class="chart-box" style="display:flex;align-items:center;gap:24px">
+              <canvas id="dr-cat-chart" style="max-height:220px;max-width:220px"></canvas>
+              <div id="dr-cat-legend" style="font-size:12px;line-height:2"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Charts row 2 -->
+        <div class="grid-2" style="margin-bottom:18px">
+          <div class="panel">
+            <div class="panel-head"><div class="panel-title">Approval Status</div><div class="panel-sub">Approved vs Pending admin approval</div></div>
+            <div class="chart-box" style="display:flex;align-items:center;gap:24px">
+              <canvas id="dr-appr-chart" style="max-height:200px;max-width:200px"></canvas>
+              <div id="dr-appr-legend" style="font-size:12px;line-height:2"></div>
+            </div>
+          </div>
+          <div class="panel">
+            <div class="panel-head"><div class="panel-title">Practice Type</div><div class="panel-sub">Clinic · Hospital · Polyclinic</div></div>
+            <div class="chart-box"><canvas id="dr-ptype-chart" style="max-height:200px"></canvas></div>
+          </div>
+        </div>
+
+        <!-- State table -->
+        <div class="panel">
+          <div class="panel-head">
+            <div><div class="panel-title">State-wise Doctor Distribution</div><div class="panel-sub">Unique doctors registered per state</div></div>
+            <div class="panel-actions">
+              <span style="font-size:11px;color:var(--txt3)" id="dr-computed-at"></span>
+              <button class="btn-sm" id="dr-refresh-btn">↻ Refresh</button>
+            </div>
+          </div>
+          <div class="tbl-wrap">
+            <table id="dr-state-table">
+              <thead><tr><th>#</th><th>State</th><th class="text-right">Doctors</th><th>Coverage</th></tr></thead>
+              <tbody id="dr-state-body"></tbody>
+            </table>
+          </div>
+        </div>
+
+      </div><!-- /#dr-stats -->
+
+      <!-- Empty state (before first doctor sync) -->
+      <div id="dr-empty" style="display:none">
+        <div class="panel" style="padding:48px;text-align:center">
+          <div style="font-size:32px;margin-bottom:12px">🩺</div>
+          <div style="font-size:15px;font-weight:700;margin-bottom:6px">No Doctor Data Yet</div>
+          <div style="font-size:13px;color:var(--txt3);margin-bottom:20px">Run an employee sync first, then click below to analyse the doctor registry.</div>
+          <button class="btn-primary" id="dr-start-btn">Analyse Doctors</button>
+        </div>
+      </div>
+
+    </div><!-- /#tab-doctors -->
 
   </div><!-- /.content -->
 </main>
@@ -1278,6 +1389,7 @@ document.querySelectorAll('.nav-item').forEach(btn => {
       if (tab==='top-performers') loadTopPerformers();
       if (tab==='non-reporters') loadNonReporters();
       if (tab==='designations') loadDesignations();
+      if (tab==='doctors') loadDoctors();
     }
   });
 });
@@ -1348,6 +1460,172 @@ async function refreshAll() {
   if (document.getElementById('tab-non-reporters').classList.contains('active'))  await loadNonReporters();
   if (document.getElementById('tab-designations').classList.contains('active'))   await loadDesignations();
 }
+
+// ── Doctors tab ───────────────────────────────────────────────────────────────
+let drPoll = null;
+const CAT_COLORS  = { supercore:'#1B2A6B', core:'#12B76A', 'non-core':'#F79009', unknown:'#98A2B3' };
+const APPR_COLORS = { APPROVED:'#12B76A', PENDING:'#F79009', REJECTED:'#F04438', UNKNOWN:'#98A2B3' };
+const SPEC_LABELS = {
+  general_physician:'General Physician', cardiologist:'Cardiologist',
+  gynecologist:'Gynecologist', neurologist:'Neurologist', pediatrician:'Pediatrician',
+  orthopedic:'Orthopedic', dermatologist:'Dermatologist', diabetologist:'Diabetologist',
+  gastroenterologist:'Gastroenterologist', pulmonologist:'Pulmonologist',
+  ophthalmologist:'Ophthalmologist', ent_specialist:'ENT Specialist',
+  endocrinologist:'Endocrinologist', nephrologist:'Nephrologist',
+  oncologist:'Oncologist', psychiatrist:'Psychiatrist', urologist:'Urologist',
+  rheumatologist:'Rheumatologist',
+};
+const PT_LABELS = {
+  individual_clinic:'Individual Clinic', hospital:'Hospital',
+  polyclinic:'Polyclinic', nursing_home:'Nursing Home', clinic:'Clinic',
+};
+
+async function loadDoctors() {
+  document.getElementById('dr-computing').style.display = 'none';
+  document.getElementById('dr-stats').style.display     = 'none';
+  document.getElementById('dr-empty').style.display     = 'none';
+
+  try {
+    const d = await fetch('/api/doctors/stats').then(r => r.json());
+    if (!d.ok) throw new Error(d.error);
+
+    if (d.computing || (!d.cached && d.running)) {
+      showDrComputing(d);
+      startDrPoll();
+      return;
+    }
+    if (!d.uniqueDoctors) {
+      document.getElementById('dr-empty').style.display = '';
+      return;
+    }
+    renderDoctorStats(d);
+  } catch (err) {
+    document.getElementById('dr-empty').style.display = '';
+    console.error('[doctors]', err.message);
+  }
+}
+
+function showDrComputing(d) {
+  document.getElementById('dr-computing').style.display = '';
+  const pct = d.total ? Math.round((d.progress / d.total) * 100) : 5;
+  document.getElementById('dr-prog-fill').style.width  = pct + '%';
+  document.getElementById('dr-prog-label').textContent =
+    d.total ? `${(d.progress||0).toLocaleString()} / ${d.total.toLocaleString()} employees` : 'Starting…';
+}
+
+function startDrPoll() {
+  if (drPoll) return;
+  drPoll = setInterval(async () => {
+    try {
+      const s = await fetch('/api/doctors/sync/status').then(r => r.json());
+      showDrComputing(s);
+      if (!s.running) {
+        clearInterval(drPoll); drPoll = null;
+        loadDoctors(); // reload with fresh cache
+      }
+    } catch {}
+  }, 3000);
+}
+
+function renderDoctorStats(d) {
+  document.getElementById('dr-stats').style.display = '';
+  document.getElementById('dr-k-unique').textContent  = fmtNum(d.uniqueDoctors);
+  document.getElementById('dr-k-assign').textContent  = fmtNum(d.totalAssignments);
+  document.getElementById('dr-k-overlap').textContent = fmtNum(d.overlap);
+
+  if (d.computedAt) {
+    document.getElementById('dr-computed-at').textContent =
+      'As of ' + new Date(d.computedAt).toLocaleString([], {dateStyle:'medium', timeStyle:'short'});
+  }
+
+  // Specialization bar chart (top 12)
+  const specEntries = Object.entries(d.bySpecialization || {}).slice(0, 12);
+  renderChart('dr-spec-chart', 'bar', {
+    labels: specEntries.map(([k]) => SPEC_LABELS[k] || k.replace(/_/g,' ')),
+    datasets: [{ data: specEntries.map(([,v]) => v),
+      backgroundColor: 'rgba(27,42,107,.75)', borderRadius: 5, borderSkipped: false }]
+  }, { indexAxis:'y', plugins:{legend:{display:false}},
+    scales:{x:{grid:{color:'#F2F4F7'},ticks:{precision:0}},y:{grid:{display:false},ticks:{font:{size:11}}}} });
+
+  // Category doughnut
+  const catEntries = Object.entries(d.byCategory || {});
+  renderDoughnutWithLegend('dr-cat-chart', 'dr-cat-legend', catEntries,
+    e => CAT_COLORS[e] || '#98A2B3');
+
+  // Approval doughnut
+  const apprEntries = Object.entries(d.byApprovalStatus || {});
+  renderDoughnutWithLegend('dr-appr-chart', 'dr-appr-legend', apprEntries,
+    e => APPR_COLORS[e] || '#98A2B3');
+
+  // Practice type bar
+  const ptEntries = Object.entries(d.byPracticeType || {}).slice(0, 8);
+  renderChart('dr-ptype-chart', 'bar', {
+    labels: ptEntries.map(([k]) => PT_LABELS[k] || k.replace(/_/g,' ')),
+    datasets: [{ data: ptEntries.map(([,v]) => v),
+      backgroundColor: ['#1B2A6B','#12B76A','#F79009','#0694A2','#7F56D9','#F04438','#98A2B3','#344054'].map(c=>c+'CC'),
+      borderRadius: 5, borderSkipped: false }]
+  }, { plugins:{legend:{display:false}},
+    scales:{x:{grid:{display:false}},y:{grid:{color:'#F2F4F7'},ticks:{precision:0}}} });
+
+  // State table
+  const stateEntries = Object.entries(d.byState || {}).sort((a,b)=>b[1]-a[1]);
+  const total = d.uniqueDoctors || 1;
+  document.getElementById('dr-state-body').innerHTML = stateEntries.map(([state, count], i) => {
+    const pct = Math.round((count / total) * 100);
+    return `<tr>
+      <td class="rank">${i+1}</td>
+      <td class="name-cell">${state}</td>
+      <td class="mono text-right">${fmtNum(count)}</td>
+      <td>
+        <div class="prog-wrap">
+          <div class="prog-track"><div class="prog-fill" style="width:${pct}%"></div></div>
+          <span class="prog-pct">${pct}%</span>
+        </div>
+      </td>
+    </tr>`;
+  }).join('');
+
+  // Show badge on sidebar with pending count
+  const pending = d.byApprovalStatus?.PENDING || 0;
+  const badge = document.getElementById('dr-nav-badge');
+  if (pending > 0) { badge.textContent = pending + ' pending'; badge.style.display = ''; }
+}
+
+function renderChart(id, type, data, options) {
+  const ctx = document.getElementById(id)?.getContext('2d');
+  if (!ctx) return;
+  if (state.charts[id]) state.charts[id].destroy();
+  state.charts[id] = new Chart(ctx, { type, data, options: { responsive:true, animation:{duration:500}, ...options } });
+}
+
+function renderDoughnutWithLegend(chartId, legendId, entries, colorFn) {
+  const labels = entries.map(([k]) => k);
+  const values = entries.map(([,v]) => v);
+  const colors = labels.map(colorFn);
+  renderChart(chartId, 'doughnut', { labels, datasets:[{ data:values, backgroundColor:colors, borderWidth:2, borderColor:'#fff', hoverOffset:4 }] },
+    { cutout:'60%', plugins:{ legend:{display:false}, tooltip:{callbacks:{label: ctx=>`${ctx.label}: ${fmtNum(ctx.raw)}`}} } });
+  const total = values.reduce((a,b)=>a+b,0);
+  document.getElementById(legendId).innerHTML = entries.map(([k,v],i) =>
+    `<div style="display:flex;align-items:center;gap:7px">
+      <span style="width:10px;height:10px;border-radius:3px;background:${colors[i]};flex-shrink:0;display:inline-block"></span>
+      <span style="color:var(--txt3)">${k}</span>
+      <span style="font-weight:700;margin-left:auto">${fmtNum(v)}</span>
+      <span style="color:var(--txt4);font-size:11px">${total?Math.round(v/total*100):0}%</span>
+    </div>`
+  ).join('');
+}
+
+// Start / Refresh buttons
+document.addEventListener('click', async e => {
+  if (e.target.id === 'dr-start-btn' || e.target.id === 'dr-refresh-btn') {
+    await fetch('/api/doctors/sync', { method: 'POST' });
+    document.getElementById('dr-stats').style.display = 'none';
+    document.getElementById('dr-empty').style.display = 'none';
+    showDrComputing({ progress: 0, total: 503 });
+    document.getElementById('dr-computing').style.display = '';
+    startDrPoll();
+  }
+});
 
 // ── Boot ──────────────────────────────────────────────────────────────────────
 (async () => {

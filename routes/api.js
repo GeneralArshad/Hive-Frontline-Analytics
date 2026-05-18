@@ -1,9 +1,10 @@
 'use strict';
-const express    = require('express');
-const router     = express.Router();
-const db         = require('../services/db');
-const hive       = require('../services/hiveClient');
-const syncEngine = require('../services/syncEngine');
+const express       = require('express');
+const router        = express.Router();
+const db            = require('../services/db');
+const hive          = require('../services/hiveClient');
+const syncEngine    = require('../services/syncEngine');
+const doctorEngine  = require('../services/doctorEngine');
 
 // ── Helper: current month/year with optional override ────────────────────────
 function getMonthYear(query) {
@@ -133,59 +134,37 @@ router.post('/sync', async (req, res) => {
   }
 });
 
-// ── GET /api/doctors ──────────────────────────────────────────────────────────
-// Probes the Hive API for doctor count using the first known employee
-router.get('/doctors', async (req, res) => {
+// ── GET /api/doctors/stats ────────────────────────────────────────────────────
+// Returns cached doctor analytics (or starts background computation)
+router.get('/doctors/stats', async (req, res) => {
   try {
-    // Use a provided employeeId, or pick the first employee from DB
-    let hiveId = req.query.employeeId;
-    if (!hiveId) {
-      const { rows } = await db.pool.query('SELECT hive_id FROM employees WHERE hive_id IS NOT NULL LIMIT 1');
-      hiveId = rows[0]?.hive_id;
-    }
-    if (!hiveId) return res.status(400).json({ ok: false, error: 'No employees synced yet. Run a sync first.' });
-    const result = await hive.fetchDoctorCount(hiveId);
-    res.json({ ok: true, ...result });
+    const cached = await db.getDoctorStats();
+    if (cached) return res.json({ ok: true, cached: true, ...cached });
+    // No cache — start computation if not already running
+    const engineState = doctorEngine.getState();
+    if (!engineState.running) await doctorEngine.computeStats();
+    res.json({ ok: true, cached: false, computing: true, ...doctorEngine.getState() });
   } catch (err) {
     res.status(500).json({ ok: false, error: err.message });
   }
 });
 
-// ── GET /api/doctors/unique ───────────────────────────────────────────────────
-// Counts unique doctors across ALL employees by sampling pages.
-// Warning: this is slow (~1 req per employee). Use sparingly.
-router.get('/doctors/unique', async (req, res) => {
+// ── POST /api/doctors/sync ────────────────────────────────────────────────────
+// Forces a fresh doctor stats computation (clears cache, runs in background)
+router.post('/doctors/sync', async (req, res) => {
   try {
-    const limit = parseInt(req.query.limit) || 50; // sample first N employees
-    const { rows: emps } = await db.pool.query(
-      'SELECT ec, hive_id FROM employees WHERE hive_id IS NOT NULL LIMIT $1', [limit]
-    );
-    if (!emps.length) return res.status(400).json({ ok: false, error: 'No employees synced yet.' });
-
-    const uniqueDoctors = new Map(); // doctorCode → doctor object
-    let totalAssignments = 0;
-
-    await Promise.all(emps.map(async emp => {
-      const doctors = await hive.fetchAllEmployeeDoctors(emp.hive_id);
-      totalAssignments += doctors.length;
-      doctors.forEach(d => {
-        const code = d.doctorCode ?? d.code ?? d._id ?? d.id;
-        if (code && !uniqueDoctors.has(String(code))) uniqueDoctors.set(String(code), d);
-      });
-    }));
-
-    const sample = [...uniqueDoctors.values()].slice(0, 3);
-    res.json({
-      ok: true,
-      employeesSampled: emps.length,
-      uniqueDoctors: uniqueDoctors.size,
-      totalAssignments,
-      note: limit < 503 ? `Sampled ${limit} of 503 employees. Add ?limit=503 for full count (slow).` : 'Full count across all employees.',
-      sampleDoctors: sample,
-    });
+    const engineState = doctorEngine.getState();
+    if (engineState.running) return res.status(409).json({ ok: false, message: 'Doctor sync already running' });
+    await doctorEngine.computeStats();
+    res.json({ ok: true, message: 'Doctor sync started' });
   } catch (err) {
     res.status(500).json({ ok: false, error: err.message });
   }
+});
+
+// ── GET /api/doctors/sync/status ──────────────────────────────────────────────
+router.get('/doctors/sync/status', async (req, res) => {
+  res.json({ ok: true, ...doctorEngine.getState() });
 });
 
 // ── GET /api/health ───────────────────────────────────────────────────────────

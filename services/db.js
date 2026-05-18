@@ -61,6 +61,12 @@ async function initDb() {
       expire TIMESTAMPTZ NOT NULL,
       PRIMARY KEY (sid)
     );
+    CREATE TABLE IF NOT EXISTS doctor_cache (
+      id           SERIAL PRIMARY KEY,
+      computed_at  TIMESTAMPTZ DEFAULT NOW(),
+      stats_json   JSONB NOT NULL
+    );
+
     CREATE INDEX IF NOT EXISTS IDX_session_expire ON session(expire);
   `);
 
@@ -277,10 +283,28 @@ async function completeSyncLog(id, employeesFetched, error = null) {
   `, [id, error ? 'error' : 'completed', employeesFetched, error]);
 }
 
+// ── Doctor cache ─────────────────────────────────────────────────────────────
+async function storeDoctorStats(stats) {
+  await pool.query(`DELETE FROM doctor_cache`);   // keep only latest
+  await pool.query(
+    `INSERT INTO doctor_cache (stats_json) VALUES ($1)`,
+    [JSON.stringify(stats)]
+  );
+}
+
+async function getDoctorStats() {
+  const { rows } = await pool.query(
+    `SELECT stats_json, computed_at FROM doctor_cache ORDER BY computed_at DESC LIMIT 1`
+  );
+  if (!rows.length) return null;
+  return { ...rows[0].stats_json, computedAt: rows[0].computed_at };
+}
+
 module.exports = {
   pool, initDb,
   upsertEmployee, upsertTourPlan, upsertDayPlan,
   getEmployeeByEc, getFilterOptions,
   getSummary, getEmployeesWithPlans, getDesignationBreakdown,
   getTopPerformers, getLastSync, createSyncLog, completeSyncLog,
+  storeDoctorStats, getDoctorStats,
 };
