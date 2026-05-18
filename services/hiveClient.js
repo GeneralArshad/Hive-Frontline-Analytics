@@ -261,57 +261,61 @@ function parseTourPlanStatus(plans, month, year) {
   return { status: best, planCount: plans.length };
 }
 
-// ── Doctors ────────────────────────────────────────────────────────────────────
-// Tries several plausible endpoint patterns until one returns data
-async function fetchDoctorCount() {
-  const candidates = [
-    '/admin/doctors',
-    '/admin/doctor-masters',
-    '/admin/doctor',
-    '/doctors',
-    '/doctor-masters',
-    '/admin/doctors?page=1&limit=1',   // just to get total count from metadata
-  ];
-
-  for (const path of candidates) {
-    try {
-      const data = await hiveGet(path);
-      // Log the raw shape so we know the exact structure
-      console.log(`[hive] Doctors endpoint hit: ${path}`);
-      console.log('[hive] Doctors response shape:', JSON.stringify(data).slice(0, 500));
-
-      // Try to extract total count from common response shapes
-      if (typeof data === 'number') return { count: data, endpoint: path, raw: data };
-      if (Array.isArray(data))    return { count: data.length, endpoint: path, note: 'array (may be paginated)', raw: data.slice(0,2) };
-
-      const total =
-        data.total        ?? data.totalCount ?? data.count       ??
-        data.totalRecords ?? data.totalDocs  ?? data.total_count ??
-        data.meta?.total  ?? data.pagination?.total ?? null;
-
-      const items =
-        data.data ?? data.doctors ?? data.items ?? data.records ?? data.results ?? null;
-
-      return {
-        count:    total ?? (Array.isArray(items) ? items.length : '?'),
-        endpoint: path,
-        meta:     { total, itemsInPage: Array.isArray(items) ? items.length : null },
-        sample:   Array.isArray(items) ? items.slice(0,2) : null,
-        rawKeys:  Object.keys(data),
-      };
-    } catch (err) {
-      console.log(`[hive] Doctors try ${path} → ${err.message.slice(0,80)}`);
-      // 404 means endpoint doesn't exist, keep trying; other errors may be transient
-      if (!err.message.includes('404') && !err.message.includes('400')) {
-        return { error: err.message, endpoint: path };
-      }
+// ── Doctors (per-employee) ─────────────────────────────────────────────────────
+// The Hive API exposes doctors per employee:
+//   GET /admin/employees/{id}/doctors?page=1&limit=100
+async function fetchEmployeeDoctors(employeeId, page = 1, limit = 100) {
+  try {
+    const data = await hiveGet(
+      `/admin/employees/${employeeId}/doctors?page=${page}&limit=${limit}`
+    );
+    // Log shape on first call
+    if (fetchEmployeeDoctors._logged < 1) {
+      console.log('[hive] Doctors response keys:', Object.keys(data).join(', '));
+      console.log('[hive] Doctors sample:', JSON.stringify(data).slice(0, 500));
+      fetchEmployeeDoctors._logged = 1;
     }
+    const items = Array.isArray(data) ? data : (data.data ?? data.doctors ?? data.items ?? data.results ?? []);
+    const total = data.total ?? data.totalCount ?? data.totalRecords ?? data.meta?.total ?? null;
+    return { items, total, page };
+  } catch (err) {
+    return { items: [], total: null, error: err.message };
   }
-  return { error: 'No working doctors endpoint found. Tried: ' + candidates.join(', ') };
+}
+fetchEmployeeDoctors._logged = 0;
+
+// Fetch all doctors for one employee (handles pagination)
+async function fetchAllEmployeeDoctors(employeeId) {
+  const first = await fetchEmployeeDoctors(employeeId, 1, 100);
+  if (!first.items.length) return first.items;
+
+  // If server told us total and there are more pages, fetch them
+  const total = first.total;
+  if (total && total > 100) {
+    const pages = Math.ceil(total / 100);
+    const rest = await Promise.all(
+      Array.from({ length: pages - 1 }, (_, i) => fetchEmployeeDoctors(employeeId, i + 2, 100))
+    );
+    return [...first.items, ...rest.flatMap(r => r.items)];
+  }
+  return first.items;
+}
+
+// Probe a single employee to understand doctor structure + count
+async function fetchDoctorCount(sampleEmployeeId) {
+  const result = await fetchEmployeeDoctors(sampleEmployeeId, 1, 1);
+  return {
+    endpoint: `/admin/employees/{id}/doctors`,
+    sampleEmployeeId,
+    totalForEmployee: result.total,
+    sampleDoctor: result.items[0] || null,
+    note: 'Doctors are per-employee in this API. Use /api/doctors/unique for cross-org totals.',
+    error: result.error || null,
+  };
 }
 
 module.exports = {
   fetchAllEmployees, fetchTourPlans, fetchDayPlans, fetchDayPlanDetails,
-  fetchDoctorCount,
+  fetchEmployeeDoctors, fetchAllEmployeeDoctors, fetchDoctorCount,
   parseEmployee, parseTourPlanStatus,
 };

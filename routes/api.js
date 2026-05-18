@@ -134,11 +134,55 @@ router.post('/sync', async (req, res) => {
 });
 
 // ── GET /api/doctors ──────────────────────────────────────────────────────────
-// Probes the Hive API for the total doctor count
+// Probes the Hive API for doctor count using the first known employee
 router.get('/doctors', async (req, res) => {
   try {
-    const result = await hive.fetchDoctorCount();
+    // Use a provided employeeId, or pick the first employee from DB
+    let hiveId = req.query.employeeId;
+    if (!hiveId) {
+      const { rows } = await db.pool.query('SELECT hive_id FROM employees WHERE hive_id IS NOT NULL LIMIT 1');
+      hiveId = rows[0]?.hive_id;
+    }
+    if (!hiveId) return res.status(400).json({ ok: false, error: 'No employees synced yet. Run a sync first.' });
+    const result = await hive.fetchDoctorCount(hiveId);
     res.json({ ok: true, ...result });
+  } catch (err) {
+    res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
+// ── GET /api/doctors/unique ───────────────────────────────────────────────────
+// Counts unique doctors across ALL employees by sampling pages.
+// Warning: this is slow (~1 req per employee). Use sparingly.
+router.get('/doctors/unique', async (req, res) => {
+  try {
+    const limit = parseInt(req.query.limit) || 50; // sample first N employees
+    const { rows: emps } = await db.pool.query(
+      'SELECT ec, hive_id FROM employees WHERE hive_id IS NOT NULL LIMIT $1', [limit]
+    );
+    if (!emps.length) return res.status(400).json({ ok: false, error: 'No employees synced yet.' });
+
+    const uniqueDoctors = new Map(); // doctorCode → doctor object
+    let totalAssignments = 0;
+
+    await Promise.all(emps.map(async emp => {
+      const doctors = await hive.fetchAllEmployeeDoctors(emp.hive_id);
+      totalAssignments += doctors.length;
+      doctors.forEach(d => {
+        const code = d.doctorCode ?? d.code ?? d._id ?? d.id;
+        if (code && !uniqueDoctors.has(String(code))) uniqueDoctors.set(String(code), d);
+      });
+    }));
+
+    const sample = [...uniqueDoctors.values()].slice(0, 3);
+    res.json({
+      ok: true,
+      employeesSampled: emps.length,
+      uniqueDoctors: uniqueDoctors.size,
+      totalAssignments,
+      note: limit < 503 ? `Sampled ${limit} of 503 employees. Add ?limit=503 for full count (slow).` : 'Full count across all employees.',
+      sampleDoctors: sample,
+    });
   } catch (err) {
     res.status(500).json({ ok: false, error: err.message });
   }
