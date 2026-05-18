@@ -261,7 +261,57 @@ function parseTourPlanStatus(plans, month, year) {
   return { status: best, planCount: plans.length };
 }
 
+// ── Doctors ────────────────────────────────────────────────────────────────────
+// Tries several plausible endpoint patterns until one returns data
+async function fetchDoctorCount() {
+  const candidates = [
+    '/admin/doctors',
+    '/admin/doctor-masters',
+    '/admin/doctor',
+    '/doctors',
+    '/doctor-masters',
+    '/admin/doctors?page=1&limit=1',   // just to get total count from metadata
+  ];
+
+  for (const path of candidates) {
+    try {
+      const data = await hiveGet(path);
+      // Log the raw shape so we know the exact structure
+      console.log(`[hive] Doctors endpoint hit: ${path}`);
+      console.log('[hive] Doctors response shape:', JSON.stringify(data).slice(0, 500));
+
+      // Try to extract total count from common response shapes
+      if (typeof data === 'number') return { count: data, endpoint: path, raw: data };
+      if (Array.isArray(data))    return { count: data.length, endpoint: path, note: 'array (may be paginated)', raw: data.slice(0,2) };
+
+      const total =
+        data.total        ?? data.totalCount ?? data.count       ??
+        data.totalRecords ?? data.totalDocs  ?? data.total_count ??
+        data.meta?.total  ?? data.pagination?.total ?? null;
+
+      const items =
+        data.data ?? data.doctors ?? data.items ?? data.records ?? data.results ?? null;
+
+      return {
+        count:    total ?? (Array.isArray(items) ? items.length : '?'),
+        endpoint: path,
+        meta:     { total, itemsInPage: Array.isArray(items) ? items.length : null },
+        sample:   Array.isArray(items) ? items.slice(0,2) : null,
+        rawKeys:  Object.keys(data),
+      };
+    } catch (err) {
+      console.log(`[hive] Doctors try ${path} → ${err.message.slice(0,80)}`);
+      // 404 means endpoint doesn't exist, keep trying; other errors may be transient
+      if (!err.message.includes('404') && !err.message.includes('400')) {
+        return { error: err.message, endpoint: path };
+      }
+    }
+  }
+  return { error: 'No working doctors endpoint found. Tried: ' + candidates.join(', ') };
+}
+
 module.exports = {
   fetchAllEmployees, fetchTourPlans, fetchDayPlans, fetchDayPlanDetails,
+  fetchDoctorCount,
   parseEmployee, parseTourPlanStatus,
 };

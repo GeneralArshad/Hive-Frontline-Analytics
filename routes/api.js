@@ -133,6 +133,17 @@ router.post('/sync', async (req, res) => {
   }
 });
 
+// ── GET /api/doctors ──────────────────────────────────────────────────────────
+// Probes the Hive API for the total doctor count
+router.get('/doctors', async (req, res) => {
+  try {
+    const result = await hive.fetchDoctorCount();
+    res.json({ ok: true, ...result });
+  } catch (err) {
+    res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
 // ── GET /api/health ───────────────────────────────────────────────────────────
 router.get('/health', async (req, res) => {
   try {
